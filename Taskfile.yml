@@ -1,0 +1,137 @@
+# https://taskfile.dev — run `task` to list the tasks.
+version: "3"
+
+# Signing credentials for `task release`, kept out of git: see
+# .env.release.example.
+dotenv: [".env.release"]
+
+vars:
+  # The three platforms of release builds: one macOS app for Apple silicon
+  # and Intel, Windows and Linux on x86-64.
+  PLATFORMS: darwin/universal,windows/amd64,linux/amd64
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  install:
+    desc: 安装前端依赖
+    cmds:
+      - pnpm --dir frontend install
+    sources:
+      - frontend/package.json
+      - frontend/pnpm-lock.yaml
+    generates:
+      - frontend/node_modules/.modules.yaml
+
+  dev:
+    desc: 开发模式运行（Vite 热更新，改 Go 代码自动重启）
+    deps: [install]
+    cmds:
+      - go tool mygo dev
+
+  generate:
+    desc: 根据 services/ 重新生成 frontend/src/mygo.ts
+    cmds:
+      - go tool mygo generate
+
+  icon:
+    desc: 由 design/icon.svg 渲染 design/icon.png（需要 Chrome）
+    cmds:
+      - ./design/render-icon.sh
+    sources:
+      - design/icon.svg
+    generates:
+      - design/icon.png
+
+  check:
+    desc: 代码检查：三个平台的 go vet 与前端类型检查
+    deps: [install]
+    cmds:
+      - go vet ./...
+      - GOOS=linux go vet ./...
+      - GOOS=windows go vet ./...
+      - pnpm --dir frontend typecheck
+
+  test:
+    desc: 单元测试
+    cmds:
+      - go test ./...
+
+  e2e:
+    desc: 端到端测试（启动 systemd + sshd 的 Docker 容器）
+    cmds:
+      - docker build -q -t berth-e2e testdata/e2e
+      - docker rm -f berth-e2e >/dev/null 2>&1 || true
+      - >-
+        docker run -d --name berth-e2e --privileged --cgroupns=host
+        -v /sys/fs/cgroup:/sys/fs/cgroup:rw --tmpfs /run --tmpfs /run/lock
+        -p 2222:22 berth-e2e
+      - sleep 4
+      - go test -tags e2e -count=1 ./core/e2e
+
+  e2e:stop:
+    desc: 删除端到端测试容器
+    cmds:
+      - docker rm -f berth-e2e
+
+  build:
+    desc: 打包三个平台到 dist/（macOS ad-hoc 签名，只能在本机运行，不公证）
+    deps: [install]
+    cmds:
+      - go tool mygo build -o dist -skip-notarize -platform {{.PLATFORMS}}
+      - task: list
+
+  release:
+    desc: 打包可分发的签名安装包：macOS Developer ID 签名并公证，Windows 安装程序（有证书时签名）
+    deps: [install]
+    preconditions:
+      - sh: '[ -n "$MACOS_SIGN_IDENTITY" ]'
+        msg: '缺少 MACOS_SIGN_IDENTITY，如 "Developer ID Application: 名字 (TEAMID)"。复制 .env.release.example 为 .env.release 填写'
+      - sh: security find-identity -v -p codesigning | grep -qF "$MACOS_SIGN_IDENTITY"
+        msg: '钥匙串里没有签名身份 $MACOS_SIGN_IDENTITY（security find-identity -v -p codesigning 查看）'
+      - sh: command -v makensis
+        msg: '制作 Windows 安装程序需要 NSIS：brew install makensis'
+      - sh: '[ -z "$WINDOWS_PFX" ] || command -v osslsigncode'
+        msg: 'Windows 签名需要 osslsigncode：brew install osslsigncode'
+    cmds:
+      - rm -rf dist
+      - go tool mygo build -o dist -sign "$MACOS_SIGN_IDENTITY" -platform {{.PLATFORMS}}
+      - task: list
+
+  release:setup:
+    desc: 一次性保存 Apple 公证凭据到钥匙串（需要 Apple ID 的 App 专用密码）
+    interactive: true
+    cmds:
+      - xcrun notarytool store-credentials berth-notary
+
+  build:mac:
+    desc: 只打包 macOS（universal）
+    deps: [install]
+    cmds:
+      - go tool mygo build -o dist -platform darwin/universal
+
+  build:windows:
+    desc: 只打包 Windows（amd64）
+    deps: [install]
+    cmds:
+      - go tool mygo build -o dist -platform windows/amd64
+
+  build:linux:
+    desc: 只打包 Linux（amd64）
+    deps: [install]
+    cmds:
+      - go tool mygo build -o dist -platform linux/amd64
+
+  list:
+    internal: true
+    cmds:
+      - find dist -maxdepth 2 -mindepth 2 -exec du -sh {} +
+    silent: true
+
+  clean:
+    desc: 删除打包和开发产物
+    cmds:
+      - rm -rf dist .mygo frontend/dist

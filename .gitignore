@@ -1,0 +1,8 @@
+node_modules/
+/frontend/dist/
+/dist/
+/.mygo/
+mygo_windows_*.syso
+.DS_Store
+.env.release
+.task/
