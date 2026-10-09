@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xusenlin/berth/core/app"
@@ -75,15 +76,31 @@ type Preflight struct {
 // keepBackups is how many backups of shared/ each app keeps.
 const keepBackups = 3
 
-var locks sync.Map // server/app → *sync.Mutex
+var (
+	locks  sync.Map // server/app → *sync.Mutex
+	active sync.Map // server → *atomic.Int32, deploys and rollbacks running
+)
 
-func lock(key string) (unlock func(), ok bool) {
-	v, _ := locks.LoadOrStore(key, &sync.Mutex{})
+// lock takes the lock of an app of a server, counting it as running on the
+// server until unlocked.
+func lock(serverID, app string) (unlock func(), ok bool) {
+	v, _ := locks.LoadOrStore(serverID+"/"+app, &sync.Mutex{})
 	mu := v.(*sync.Mutex)
 	if !mu.TryLock() {
 		return nil, false
 	}
-	return mu.Unlock, true
+	n, _ := active.LoadOrStore(serverID, &atomic.Int32{})
+	n.(*atomic.Int32).Add(1)
+	return func() {
+		n.(*atomic.Int32).Add(-1)
+		mu.Unlock()
+	}, true
+}
+
+// Busy reports whether a deploy or rollback runs on a server.
+func Busy(serverID string) bool {
+	n, ok := active.Load(serverID)
+	return ok && n.(*atomic.Int32).Load() > 0
 }
 
 // Deployer deploys apps of one server.
@@ -143,7 +160,7 @@ func (d *Deployer) Check(ctx context.Context, a app.App, file string) (*Prefligh
 // Deploy uploads file as a new release of the app named name and switches
 // to it, rolling back when it fails its health check.
 func (d *Deployer) Deploy(ctx context.Context, name, file string, report func(Event)) (Result, error) {
-	unlock, ok := lock(d.ServerID + "/" + name)
+	unlock, ok := lock(d.ServerID, name)
 	if !ok {
 		return Result{}, fmt.Errorf("%s 正在发版或回滚", name)
 	}
@@ -339,7 +356,7 @@ func (d *Deployer) checkRestored(ctx context.Context, a app.App, report func(Eve
 // Rollback switches an app to an earlier release, and back again when that
 // release fails its health check. shared/ is left as it is.
 func (d *Deployer) Rollback(ctx context.Context, name, release string, report func(Event)) (Result, error) {
-	unlock, ok := lock(d.ServerID + "/" + name)
+	unlock, ok := lock(d.ServerID, name)
 	if !ok {
 		return Result{}, fmt.Errorf("%s 正在发版或回滚", name)
 	}

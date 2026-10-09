@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ExternalLink, Loader2, Play, RotateCw, Square, TriangleAlert } from "lucide-react";
+import { ChevronLeft, ExternalLink, Loader2, Play, Plug, RotateCw, Square, TriangleAlert, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { AppForm } from "@/components/app-form";
 import { Confirm } from "@/components/confirm";
@@ -18,14 +18,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { message, toastError } from "@/lib/errors";
 import { bytes, cpuTime, duration, releaseDate } from "@/lib/format";
 import { useNav } from "@/lib/nav";
-import { keys, useApp, useConnection, useServers } from "@/lib/queries";
+import { keys, useApp, useConnection, useServerLink, useServers } from "@/lib/queries";
 import { Apps, type Action, type Info } from "@/mygo";
 
 export function AppPage({ serverId, name }: { serverId: string; name: string }) {
   const qc = useQueryClient();
   const { route, go } = useNav();
   const [tab, setTab] = useState(route.tab ?? "overview");
-  const info = useApp(serverId, name);
+  const link = useServerLink(serverId);
+  const info = useApp(serverId, name, !link.offline);
   const servers = useServers();
   const server = servers.data?.find((s) => s.server.id === serverId)?.server;
 
@@ -47,7 +48,8 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
     <>
       <PageHeader
         actions={
-          d && (
+          d &&
+          !link.offline && (
             <>
               {d.app.port ? (
                 <Button size="sm" variant="ghost" onClick={() => Apps.open(serverId, d.app.port!).catch(toastError)} title={`http://${server?.host}:${d.app.port}`}>
@@ -83,7 +85,18 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
         {d && <AppState status={d.status} current={d.current} className="ml-1 text-xs" />}
       </PageHeader>
 
-      {info.isError && !d ? (
+      {link.offline ? (
+        <div className="p-5">
+          <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-sm">
+            <Unplug className="size-6" />
+            已断开与 {server?.name} 的连接，不会自动重连
+            <Button size="sm" disabled={link.connecting} onClick={link.connect}>
+              {link.connecting ? <Loader2 className="animate-spin" /> : <Plug />}
+              连接
+            </Button>
+          </div>
+        </div>
+      ) : info.isError && !d ? (
         <div className="p-5">
           <Alert variant="destructive">
             <TriangleAlert />

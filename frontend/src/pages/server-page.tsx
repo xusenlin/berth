@@ -25,18 +25,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { message, toastError } from "@/lib/errors";
 import { bytes, duration, percent, release } from "@/lib/format";
 import { useNav } from "@/lib/nav";
-import { keys, useApps, useConnection, useOverview, usePorts, useServers } from "@/lib/queries";
+import { keys, useApps, useOverview, usePorts, useServerLink } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Servers, type Env, type Overview } from "@/mygo";
 
 export function ServerPage({ serverId }: { serverId: string }) {
   const qc = useQueryClient();
   const { go } = useNav();
-  const servers = useServers();
-  const view = servers.data?.find((s) => s.server.id === serverId);
-  const conn = useConnection(serverId);
-  const ready = conn.isSuccess;
-  const env = conn.data?.env ?? null;
+  const { view, offline, conn, connecting, ready, env, connect, disconnect } = useServerLink(serverId);
   const overview = useOverview(serverId, ready);
   const apps = useApps(serverId, ready && !!env?.systemd);
   const ports = usePorts(serverId, ready);
@@ -44,10 +40,6 @@ export function ServerPage({ serverId }: { serverId: string }) {
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState("apps");
 
-  const reconnect = () => {
-    qc.removeQueries({ queryKey: keys.connect(serverId) });
-    qc.invalidateQueries({ queryKey: keys.connect(serverId) });
-  };
   const del = useMutation({
     mutationFn: () => Servers.delete(serverId),
     onSuccess: () => {
@@ -60,7 +52,7 @@ export function ServerPage({ serverId }: { serverId: string }) {
 
   if (!view) return null;
   const s = view.server;
-  const status = conn.isFetching ? "connecting" : conn.isError ? "error" : view.status;
+  const status = connecting ? "connecting" : offline ? "disconnected" : conn.isError ? "error" : view.status;
 
   return (
     <>
@@ -73,13 +65,13 @@ export function ServerPage({ serverId }: { serverId: string }) {
               className="size-8"
               title="刷新"
               onClick={() => {
-                if (!ready) return reconnect();
+                if (!ready) return connect();
                 qc.invalidateQueries({ queryKey: keys.overview(serverId) });
                 qc.invalidateQueries({ queryKey: keys.apps(serverId) });
                 qc.invalidateQueries({ queryKey: keys.ports(serverId) });
               }}
             >
-              <RefreshCw className={cn(conn.isFetching && "animate-spin")} />
+              <RefreshCw className={cn(connecting && "animate-spin")} />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -92,18 +84,13 @@ export function ServerPage({ serverId }: { serverId: string }) {
                   <Pencil />
                   编辑连接
                 </DropdownMenuItem>
-                {view.status === "connected" ? (
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      await Servers.disconnect(serverId);
-                      qc.removeQueries({ queryKey: keys.connect(serverId) });
-                    }}
-                  >
+                {!offline && view.status === "connected" ? (
+                  <DropdownMenuItem onClick={() => disconnect().then(() => toast.success(`已断开 ${s.name}`), toastError)}>
                     <Unplug />
                     断开连接
                   </DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem onClick={reconnect}>
+                  <DropdownMenuItem onClick={connect}>
                     <Plug />
                     连接
                   </DropdownMenuItem>
@@ -133,18 +120,28 @@ export function ServerPage({ serverId }: { serverId: string }) {
           {s.user}@{s.host}
           {s.port !== 22 && `:${s.port}`}
         </span>
-        <span className="text-muted-foreground text-xs">{serverLabels[status]}</span>
+        <span className="text-muted-foreground text-xs">{offline && !connecting ? "已断开" : serverLabels[status]}</span>
       </PageHeader>
 
       <div className="flex-1 space-y-5 overflow-y-auto p-5">
-        {conn.isError && (
+        {offline && !connecting && (
+          <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-sm">
+            <Unplug className="size-6" />
+            已断开与 {s.name} 的连接，不会自动重连
+            <Button size="sm" onClick={connect}>
+              <Plug />
+              连接
+            </Button>
+          </div>
+        )}
+        {!offline && conn.isError && (
           <Alert variant="destructive">
             <TriangleAlert />
             <AlertTitle>无法连接</AlertTitle>
             <AlertDescription>
               <p className="selectable break-all">{message(conn.error)}</p>
               <div className="mt-2 flex gap-2">
-                <Button size="sm" variant="outline" onClick={reconnect}>
+                <Button size="sm" variant="outline" onClick={connect}>
                   重试
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
@@ -154,7 +151,7 @@ export function ServerPage({ serverId }: { serverId: string }) {
             </AlertDescription>
           </Alert>
         )}
-        {conn.isLoading && (
+        {!offline && conn.isLoading && (
           <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" />
             正在连接 {s.host}…

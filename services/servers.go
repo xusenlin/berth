@@ -10,6 +10,7 @@ import (
 
 	"github.com/xusenlin/berth/core/app"
 	"github.com/xusenlin/berth/core/config"
+	"github.com/xusenlin/berth/core/deploy"
 	"github.com/xusenlin/berth/core/server"
 	"github.com/xusenlin/berth/core/ssh"
 )
@@ -31,6 +32,9 @@ type ServerView struct {
 	Status    ssh.Status    `json:"status"`
 	Env       *server.Env   `json:"env"`
 	HasSecret bool          `json:"hasSecret"`
+	// Offline is set when the user disconnected the server: it stays
+	// disconnected until Connect.
+	Offline bool `json:"offline"`
 }
 
 // TestResult is what a test connection found.
@@ -44,7 +48,7 @@ type TestResult struct {
 }
 
 func (s *Servers) view(srv config.Server) ServerView {
-	v := ServerView{Server: srv, Status: s.B.Pool.Status(srv.ID)}
+	v := ServerView{Server: srv, Status: s.B.Pool.Status(srv.ID), Offline: s.B.isOffline(srv.ID)}
 	if env, ok := s.B.cachedEnv(srv.ID); ok {
 		v.Env = &env
 	}
@@ -121,12 +125,17 @@ func (s *Servers) Save(in ServerInput) (ServerView, error) {
 	}
 	s.B.Pool.Close(srv.ID)
 	s.B.forgetEnv(srv.ID)
+	s.B.setOffline(srv.ID, false) // new settings: connect with them
 	return s.view(srv), nil
 }
 
 // Delete forgets a server. Its apps keep running.
 func (s *Servers) Delete(id string) error {
+	if deploy.Busy(id) {
+		return errors.New("这台服务器上正在发版或回滚，完成后再删除")
+	}
 	s.B.Pool.Close(id)
+	s.B.setOffline(id, false)
 	s.B.forgetEnv(id)
 	if err := s.B.Store.DeleteServer(id); err != nil {
 		return err
@@ -135,11 +144,15 @@ func (s *Servers) Delete(id string) error {
 }
 
 // Connect connects to a server, if it is not already, and returns it with
-// its environment.
+// its environment. It does not reconnect a server the user disconnected:
+// Reconnect does.
 func (s *Servers) Connect(ctx context.Context, id string) (ServerView, error) {
 	srv, ok := s.B.Store.Server(id)
 	if !ok {
 		return ServerView{}, errors.New("服务器不存在")
+	}
+	if s.B.isOffline(id) {
+		return s.view(srv), nil
 	}
 	if _, _, err := s.B.client(ctx, id); err != nil {
 		return s.view(srv), err
@@ -147,8 +160,23 @@ func (s *Servers) Connect(ctx context.Context, id string) (ServerView, error) {
 	return s.view(srv), nil
 }
 
-// Disconnect closes the connection to a server.
-func (s *Servers) Disconnect(id string) { s.B.Pool.Close(id) }
+// Reconnect connects to a server the user disconnected.
+func (s *Servers) Reconnect(ctx context.Context, id string) (ServerView, error) {
+	s.B.setOffline(id, false)
+	return s.Connect(ctx, id)
+}
+
+// Disconnect closes the connection to a server and keeps it closed until
+// Reconnect.
+func (s *Servers) Disconnect(id string) error {
+	if deploy.Busy(id) {
+		return errors.New("这台服务器上正在发版或回滚，完成后再断开")
+	}
+	s.B.setOffline(id, true)
+	s.B.Pool.Close(id)
+	s.B.forgetEnv(id)
+	return nil
+}
 
 // EnableLinger enables linger for the login user, so user services start
 // at boot.

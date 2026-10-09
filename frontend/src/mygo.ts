@@ -309,6 +309,11 @@ export interface ServerView {
   status: Status;
   env: Env | null;
   hasSecret: boolean;
+  /**
+   * Offline is set when the user disconnected the server: it stays
+   * disconnected until Connect.
+   */
+  offline: boolean;
 }
 
 /** Settings are preferences of the app. */
@@ -372,7 +377,8 @@ export const Servers = {
   },
   /**
    * Connect connects to a server, if it is not already, and returns it with
-   * its environment.
+   * its environment. It does not reconnect a server the user disconnected:
+   * Reconnect does.
    */
   connect(id: string): Promise<ServerView> {
     return call("Servers.Connect", id);
@@ -381,7 +387,10 @@ export const Servers = {
   delete(id: string): Promise<void> {
     return call("Servers.Delete", id);
   },
-  /** Disconnect closes the connection to a server. */
+  /**
+   * Disconnect closes the connection to a server and keeps it closed until
+   * Reconnect.
+   */
   disconnect(id: string): Promise<void> {
     return call("Servers.Disconnect", id);
   },
@@ -413,6 +422,10 @@ export const Servers = {
    */
   ports(id: string): Promise<Ports> {
     return call("Servers.Ports", id);
+  },
+  /** Reconnect connects to a server the user disconnected. */
+  reconnect(id: string): Promise<ServerView> {
+    return call("Servers.Reconnect", id);
   },
   /**
    * Save adds or updates a server. Its HostKey must be the fingerprint the

@@ -4,6 +4,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -33,11 +34,17 @@ type Backend struct {
 
 	mu   sync.Mutex
 	envs map[string]server.Env
+	// offline are the servers the user disconnected: nothing dials them
+	// until the user connects again.
+	offline map[string]bool
 }
+
+// ErrOffline is returned for servers the user disconnected.
+var ErrOffline = errors.New("已断开连接，点击“连接”后再操作")
 
 // NewBackend opens the configuration and the connection pool.
 func NewBackend(store *config.Store, secrets config.Secrets) *Backend {
-	b := &Backend{Store: store, Secrets: secrets, envs: map[string]server.Env{}}
+	b := &Backend{Store: store, Secrets: secrets, envs: map[string]server.Env{}, offline: map[string]bool{}}
 	b.Pool = ssh.NewPool(b.target, func(id string, st ssh.Status, err error) {
 		ch := StatusChange{ID: id, Status: st}
 		if err != nil {
@@ -78,9 +85,17 @@ func targetOf(srv config.Server, secret string) ssh.Target {
 // client returns the connection to a server and its environment, detecting
 // it once per connection.
 func (b *Backend) client(ctx context.Context, id string) (*ssh.Client, server.Env, error) {
+	if b.isOffline(id) {
+		return nil, server.Env{}, ErrOffline
+	}
 	c, err := b.Pool.Get(ctx, id)
 	if err != nil {
 		return nil, server.Env{}, err
+	}
+	if b.isOffline(id) {
+		// Disconnected while this call dialed: do not leave it connected.
+		b.Pool.Close(id)
+		return nil, server.Env{}, ErrOffline
 	}
 	b.mu.Lock()
 	env, ok := b.envs[id]
@@ -114,6 +129,22 @@ func (b *Backend) cachedEnv(id string) (server.Env, bool) {
 	defer b.mu.Unlock()
 	env, ok := b.envs[id]
 	return env, ok
+}
+
+func (b *Backend) isOffline(id string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.offline[id]
+}
+
+func (b *Backend) setOffline(id string, off bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if off {
+		b.offline[id] = true
+	} else {
+		delete(b.offline, id)
+	}
 }
 
 func (b *Backend) forgetEnv(id string) {
