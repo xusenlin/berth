@@ -1,8 +1,9 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ExternalLink, Loader2, Play, Plug, RotateCw, Square, TriangleAlert, Unplug } from "lucide-react";
+import { Archive, ChevronLeft, ExternalLink, Loader2, Play, Plug, RotateCw, Square, TriangleAlert, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { AppForm } from "@/components/app-form";
+import { BackupDialog } from "@/components/backup-dialog";
 import { Confirm } from "@/components/confirm";
 import { Code } from "@/components/copy";
 import { DeployPanel } from "@/components/deploy-panel";
@@ -25,6 +26,7 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
   const qc = useQueryClient();
   const { route, go } = useNav();
   const [tab, setTab] = useState(route.tab ?? "overview");
+  const [backingUp, setBackingUp] = useState(false);
   const link = useServerLink(serverId);
   const info = useApp(serverId, name, !link.offline);
   const servers = useServers();
@@ -51,6 +53,10 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
           d &&
           !link.offline && (
             <>
+              <Button size="sm" variant="ghost" onClick={() => setBackingUp(true)} title="下载备份到本地">
+                <Archive />
+                备份
+              </Button>
               {d.app.port ? (
                 <Button size="sm" variant="ghost" onClick={() => Apps.open(serverId, d.app.port!).catch(toastError)} title={`http://${server?.host}:${d.app.port}`}>
                   <ExternalLink />
@@ -137,6 +143,7 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
           </TabsContent>
         </Tabs>
       )}
+      {d && <BackupDialog serverId={serverId} app={d.app} open={backingUp} onOpenChange={setBackingUp} />}
     </>
   );
 }

@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/egoist/mygo"
 
 	"github.com/xusenlin/berth/core/app"
+	"github.com/xusenlin/berth/core/backup"
 	"github.com/xusenlin/berth/core/deploy"
 	"github.com/xusenlin/berth/core/logs"
 )
@@ -254,3 +258,92 @@ func (a *Apps) WriteShared(ctx context.Context, serverID, name, path, content st
 	}
 	return m.WriteShared(ctx, name, path, content, modTime)
 }
+
+// BackupEstimate measures what a backup of an app would hold.
+func (a *Apps) BackupEstimate(ctx context.Context, serverID, name string) (backup.Estimate, error) {
+	m, err := a.B.manager(ctx, serverID)
+	if err != nil {
+		return backup.Estimate{}, err
+	}
+	return backup.EstimateOf(ctx, m, name)
+}
+
+// PickBackupDest asks where to save a backup of an app. It returns "" when
+// canceled.
+func (a *Apps) PickBackupDest(ctx context.Context, serverID, name string) (string, error) {
+	srv, _ := a.B.Store.Server(serverID)
+	file := safeFileName(srv.Name) + "-" + name + "-" + time.Now().Format("20060102-1504") + ".tar.gz"
+	if DebugPick != nil {
+		return DebugPick(), nil
+	}
+	dir, _ := mygo.App.Path(mygo.PathDownloads)
+	return mygo.Dialog.Save(mygo.SaveDialogOptions{
+		Parent:      mygo.CallerWindow(ctx),
+		Title:       "保存备份",
+		DefaultPath: filepath.Join(dir, file),
+		Filters:     []mygo.FileFilter{{Name: "Berth 备份", Extensions: []string{"gz"}}},
+	})
+}
+
+func safeFileName(s string) string {
+	return strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`/\:*?"<>| `, r) {
+			return '-'
+		}
+		return r
+	}, s)
+}
+
+// Backup saves an app to dest on this computer, streaming the progress.
+func (a *Apps) Backup(ctx context.Context, serverID, name, dest string, opts backup.Options, progress *mygo.Channel[backup.Progress]) (backup.Saved, error) {
+	c, env, err := a.B.client(ctx, serverID)
+	if err != nil {
+		return backup.Saved{}, err
+	}
+	srv, _ := a.B.Store.Server(serverID)
+	info := backup.ServerInfo{Name: srv.Name, Host: srv.Host, User: env.User, Home: env.Home, Mode: string(env.Mode), Arch: env.Arch}
+	return backup.Create(ctx, &app.Manager{C: c, Env: env}, serverID, info, name, dest, opts, func(e backup.Progress) { _ = progress.Send(e) })
+}
+
+// PickBackupFile asks for a backup to restore. It returns "" when canceled.
+func (a *Apps) PickBackupFile(ctx context.Context) (string, error) {
+	if DebugPick != nil {
+		return DebugPick(), nil
+	}
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+		Parent:  mygo.CallerWindow(ctx),
+		Title:   "选择 Berth 备份",
+		Filters: []mygo.FileFilter{{Name: "Berth 备份", Extensions: []string{"gz", "tgz"}}},
+	})
+	if err != nil || len(paths) == 0 {
+		return "", err
+	}
+	return paths[0], nil
+}
+
+// InspectBackup reads a backup and checks it against a server.
+func (a *Apps) InspectBackup(ctx context.Context, serverID, file string) (*backup.Preview, error) {
+	m, err := a.B.manager(ctx, serverID)
+	if err != nil {
+		return nil, err
+	}
+	srv, _ := a.B.Store.Server(serverID)
+	return backup.Inspect(ctx, m, file, srv.PortRange)
+}
+
+// Restore puts a backup on a server as an app, streaming the progress.
+func (a *Apps) Restore(ctx context.Context, serverID, file string, opts backup.RestoreOptions, progress *mygo.Channel[backup.Progress]) (backup.RestoreResult, error) {
+	m, err := a.B.manager(ctx, serverID)
+	if err != nil {
+		return backup.RestoreResult{}, err
+	}
+	res, err := backup.Restore(ctx, m, serverID, file, opts, func(e backup.Progress) { _ = progress.Send(e) })
+	if err != nil {
+		// The result tells what was done before the failure.
+		res.OK, res.Error = false, err.Error()
+	}
+	return res, nil
+}
+
+// Reveal shows a file in Finder or Explorer.
+func (a *Apps) Reveal(path string) { mygo.Shell.ShowItemInFolder(path) }

@@ -1,12 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Cpu, HardDrive, Loader2, MemoryStick, MoreHorizontal, Pencil, Plus, Plug, RefreshCw, Server, Trash2, TriangleAlert, Unplug } from "lucide-react";
+import { ArchiveRestore, Cpu, HardDrive, Loader2, MemoryStick, MoreHorizontal, Pencil, Plus, Plug, RefreshCw, Server, Trash2, TriangleAlert, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { AppDialog } from "@/components/app-form";
 import { Confirm } from "@/components/confirm";
 import { Code } from "@/components/copy";
 import { PageHeader } from "@/components/page-header";
 import { PortsPanel } from "@/components/ports-panel";
+import { RestoreDialog } from "@/components/restore-dialog";
 import { ServerDialog } from "@/components/server-dialog";
 import { AppState, ServerDot, serverLabels } from "@/components/status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -38,6 +39,7 @@ export function ServerPage({ serverId }: { serverId: string }) {
   const ports = usePorts(serverId, ready);
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [tab, setTab] = useState("apps");
 
   const del = useMutation({
@@ -170,10 +172,16 @@ export function ServerPage({ serverId }: { serverId: string }) {
                 </TabsTrigger>
               </TabsList>
               {tab === "apps" && (
-                <Button size="sm" onClick={() => setCreating(true)}>
-                  <Plus />
-                  新建应用
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setRestoring(true)}>
+                    <ArchiveRestore />
+                    从备份恢复
+                  </Button>
+                  <Button size="sm" onClick={() => setCreating(true)}>
+                    <Plus />
+                    新建应用
+                  </Button>
+                </div>
               )}
             </div>
             <TabsContent value="apps" className="mt-3">
@@ -187,6 +195,7 @@ export function ServerPage({ serverId }: { serverId: string }) {
       </div>
       <ServerDialog open={editing} onOpenChange={setEditing} edit={view} />
       <AppDialog serverId={serverId} open={creating} onOpenChange={setCreating} />
+      <RestoreDialog serverId={serverId} open={restoring} onOpenChange={setRestoring} />
     </>
   );
 }

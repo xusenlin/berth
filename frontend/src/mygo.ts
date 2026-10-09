@@ -50,6 +50,15 @@ export interface AppStatus {
 /** AuthType is how Berth logs in to a server. */
 export type AuthType = "password" | "key" | "agent";
 
+/** Info is what reading an archive found. */
+export interface Contents {
+  manifest: Manifest;
+  /** Size is the archive's size, DataSize the size of its files. */
+  size: number;
+  dataSize: number;
+  files: number;
+}
+
 /** Disk is a mounted filesystem. */
 export interface Disk {
   filesystem: string;
@@ -95,6 +104,18 @@ export interface Env {
    * filesystem.
    */
   diskFree: number;
+}
+
+/** Estimate is what a backup of an app would hold. */
+export interface Estimate {
+  release: string;
+  releases: number;
+  sharedSize: number;
+  /** the current release */
+  releaseSize: number;
+  /** every release */
+  releasesSize: number;
+  running: boolean;
 }
 
 /** Event reports the progress of a deploy. */
@@ -159,8 +180,45 @@ export interface Listener {
   local: boolean;
 }
 
+/** Manifest describes an archive. */
+export interface Manifest {
+  format: number;
+  app: string;
+  /** Release is the release that was current, "" when there was none. */
+  release: string;
+  /** Releases are the releases in the archive. */
+  releases: string[];
+  server: ServerInfo;
+  createdAt: string;
+  /**
+   * Paused is set when the app was stopped while archived, so that its
+   * data is consistent.
+   */
+  paused: boolean;
+  logs: boolean;
+}
+
 /** Mode is how apps run on a server, decided by the login user. */
 export type Mode = "root" | "user";
+
+/**
+ * Options choose what a backup holds besides app.json, shared/ and the
+ * current release.
+ */
+export interface Options {
+  /**
+   * AllReleases adds the releases kept on the server, not only the
+   * current one.
+   */
+  allReleases: boolean;
+  /** LogDays adds the last days of the app's log; 0 adds none. */
+  logDays: number;
+  /**
+   * Pause stops the app while its files are read, so that databases are
+   * consistent, and starts it again.
+   */
+  pause: boolean;
+}
 
 /** Overview is a snapshot of a server's resources. */
 export interface Overview {
@@ -231,6 +289,33 @@ export interface Preset {
   app: App;
 }
 
+/** Preview is what restoring an archive to a server would do. */
+export interface Preview {
+  info: Contents | null;
+  app: App;
+  /** Exists is set when the server has an app of the archive's name. */
+  exists: boolean;
+  serverArch: string;
+  /** ArchOK is false when the archive's programs do not run on the server. */
+  archOK: boolean;
+  /** PortTaken says who holds the app's port on the server, "" when free. */
+  portTaken: string;
+  /**
+   * Port is the port to restore with: the app's own when free, else a
+   * free one of the server's range.
+   */
+  port: number;
+  warnings: string[];
+}
+
+/** Progress reports the progress of a backup or restore, as deploy.Event does. */
+export interface Progress {
+  step: Stage;
+  state: State;
+  message?: string;
+  progress?: number;
+}
+
 /** Query selects lines of history. */
 export interface Query {
   /** Since and Until are in milliseconds since the epoch; 0 is unbounded. */
@@ -264,6 +349,33 @@ export interface ReservedPort {
 /** Restart is the systemd Restart= policy. */
 export type Restart = "on-failure" | "always" | "no";
 
+/** RestoreOptions choose how an archive is restored. */
+export interface RestoreOptions {
+  /** Name is the app's name on the server, by default the archive's. */
+  name: string;
+  /** Port replaces the app's port; 0 keeps none. */
+  port: number;
+  /**
+   * Overwrite allows replacing an existing app of that name. Its shared/
+   * is kept in backups/, not deleted.
+   */
+  overwrite: boolean;
+  /** Start starts the app once restored. */
+  start: boolean;
+}
+
+/** RestoreResult is how a restore went. */
+export interface RestoreResult {
+  ok: boolean;
+  name: string;
+  release: string;
+  /** Kept is where an overwritten app's shared/ was moved. */
+  kept?: string;
+  started: boolean;
+  error?: string;
+  logs?: string;
+}
+
 /** Result is the outcome of a deploy or rollback. */
 export interface Result {
   ok: boolean;
@@ -280,6 +392,15 @@ export interface Result {
   logs?: string;
 }
 
+/** Saved is a finished backup. */
+export interface Saved {
+  path: string;
+  size: number;
+  manifest: Manifest;
+  /** Warning is set when tar saw files change while it read them. */
+  warning?: string;
+}
+
 /** Server is how to reach one server. */
 export interface Server {
   id: string;
@@ -291,6 +412,17 @@ export interface Server {
   keyPath: string;
   hostKey: string;
   portRange: number[];
+}
+
+/** ServerInfo is where an archive comes from. */
+export interface ServerInfo {
+  name: string;
+  host: string;
+  user: string;
+  home: string;
+  mode: string;
+  /** Arch is the server's uname -m: the releases' programs run on it. */
+  arch: string;
 }
 
 /** ServerInput is a server being added or edited. */
@@ -338,6 +470,9 @@ export interface SharedFiles {
   /** Truncated is set when the directory has more files than listed. */
   truncated: boolean;
 }
+
+/** Stage is a stage of a backup or restore. */
+export type Stage = "prepare" | "pause" | "archive" | "logs" | "resume" | "save" | "check" | "upload" | "link" | "switch" | "configure" | "start" | "health";
 
 /** State is how a step went. */
 export type State = "running" | "done" | "skipped" | "failed" | "warning";
@@ -446,6 +581,14 @@ export const Servers = {
 
 /** Apps manages the apps of servers. */
 export const Apps = {
+  /** Backup saves an app to dest on this computer, streaming the progress. */
+  backup(serverID: string, name: string, dest: string, opts: Options, progress: Channel<Progress>): Promise<Saved> {
+    return call("Apps.Backup", serverID, name, dest, opts, progress);
+  },
+  /** BackupEstimate measures what a backup of an app would hold. */
+  backupEstimate(serverID: string, name: string): Promise<Estimate> {
+    return call("Apps.BackupEstimate", serverID, name);
+  },
   /** Check inspects a release file before it is deployed. */
   check(serverID: string, name: string, file: string): Promise<Preflight | null> {
     return call("Apps.Check", serverID, name, file);
@@ -477,6 +620,10 @@ export const Apps = {
   get(serverID: string, name: string): Promise<Info> {
     return call("Apps.Get", serverID, name);
   },
+  /** InspectBackup reads a backup and checks it against a server. */
+  inspectBackup(serverID: string, file: string): Promise<Preview | null> {
+    return call("Apps.InspectBackup", serverID, file);
+  },
   /** List returns the apps of a server with their states. */
   list(serverID: string): Promise<Info[]> {
     return call("Apps.List", serverID);
@@ -488,6 +635,17 @@ export const Apps = {
   /** Open opens http://host:port of an app in the default browser. */
   open(serverID: string, port: number): Promise<void> {
     return call("Apps.Open", serverID, port);
+  },
+  /**
+   * PickBackupDest asks where to save a backup of an app. It returns "" when
+   * canceled.
+   */
+  pickBackupDest(serverID: string, name: string): Promise<string> {
+    return call("Apps.PickBackupDest", serverID, name);
+  },
+  /** PickBackupFile asks for a backup to restore. It returns "" when canceled. */
+  pickBackupFile(): Promise<string> {
+    return call("Apps.PickBackupFile");
   },
   /**
    * PickRelease asks for a release file: an executable, a zip or a tar.gz.
@@ -511,6 +669,14 @@ export const Apps = {
   /** Releases returns an app's releases, newest first. */
   releases(serverID: string, name: string): Promise<Release[]> {
     return call("Apps.Releases", serverID, name);
+  },
+  /** Restore puts a backup on a server as an app, streaming the progress. */
+  restore(serverID: string, file: string, opts: RestoreOptions, progress: Channel<Progress>): Promise<RestoreResult> {
+    return call("Apps.Restore", serverID, file, opts, progress);
+  },
+  /** Reveal shows a file in Finder or Explorer. */
+  reveal(path: string): Promise<void> {
+    return call("Apps.Reveal", path);
   },
   /** Rollback switches an app to an earlier release, streaming the progress. */
   rollback(serverID: string, name: string, release: string, progress: Channel<Event>): Promise<Result> {

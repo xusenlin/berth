@@ -268,3 +268,50 @@ func Quote(s string) string {
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
+
+// Pipe runs a command, feeding it stdin (which may be nil) and handing its
+// standard output to read while it runs. It returns the exit status and the
+// standard error once both the command and read are done. A failing read
+// stops the command.
+func (c *Client) Pipe(ctx context.Context, cmd string, stdin io.Reader, read func(io.Reader) error) (Result, error) {
+	s, err := c.ssh.NewSession()
+	if err != nil {
+		return Result{}, fmt.Errorf("打开会话：%w", err)
+	}
+	defer s.Close()
+	out, err := s.StdoutPipe()
+	if err != nil {
+		return Result{}, err
+	}
+	var stderr bytes.Buffer
+	s.Stderr, s.Stdin = &stderr, stdin
+	if err := s.Start(cmd); err != nil {
+		return Result{}, err
+	}
+	stop := context.AfterFunc(ctx, func() {
+		_ = s.Signal(ssh.SIGTERM)
+		s.Close()
+	})
+	defer stop()
+	readErr := read(out)
+	if readErr != nil {
+		_ = s.Signal(ssh.SIGTERM)
+		s.Close()
+	} else {
+		_, _ = io.Copy(io.Discard, out) // let the command finish writing
+	}
+	waitErr := s.Wait()
+	res := Result{Stderr: stderr.String()}
+	var exit *ssh.ExitError
+	if errors.As(waitErr, &exit) {
+		res.Status = exit.ExitStatus()
+		waitErr = nil
+	}
+	switch {
+	case readErr != nil:
+		return res, readErr
+	case ctx.Err() != nil:
+		return res, ctx.Err()
+	}
+	return res, waitErr
+}

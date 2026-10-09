@@ -97,7 +97,12 @@ func lock(serverID, app string) (unlock func(), ok bool) {
 	}, true
 }
 
-// Busy reports whether a deploy or rollback runs on a server.
+// LockApp keeps deploys, rollbacks, backups and restores of an app from
+// running at once. ok is false when one already runs.
+func LockApp(serverID, app string) (unlock func(), ok bool) { return lock(serverID, app) }
+
+// Busy reports whether a deploy, rollback, backup or restore runs on a
+// server.
 func Busy(serverID string) bool {
 	n, ok := active.Load(serverID)
 	return ok && n.(*atomic.Int32).Load() > 0
@@ -481,6 +486,21 @@ func (d *Deployer) upload(ctx context.Context, pkg *Package, rel, entry string, 
 		return fmt.Errorf("解压失败：%s", strings.TrimSpace(res.Stderr))
 	}
 	return nil
+}
+
+// LinkScript makes each shared path of the release in rel a symlink into
+// shared, as deploys do.
+func LinkScript(rel, shared string, paths []string) string { return linkScript(rel, shared, paths) }
+
+// SwitchScript points an app's current at a release atomically.
+func SwitchScript(p app.Paths, id string) string { return switchScript(p, id) }
+
+// Start starts an app's unit and returns when, for JournalTail.
+func (d *Deployer) Start(ctx context.Context, unit string) (string, error) { return d.start(ctx, unit) }
+
+// JournalTail returns the last lines of a unit's log since a Start.
+func (d *Deployer) JournalTail(ctx context.Context, unit, since string) string {
+	return d.journalTail(ctx, unit, since)
 }
 
 // linkScript makes each shared path of the release a symlink into

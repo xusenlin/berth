@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Channel, onFileDrop } from "mygo-runtime";
-import { Check, CircleCheck, CircleX, FileArchive, FolderOpen, Loader2, Minus, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
+import { CircleCheck, CircleX, FileArchive, FolderOpen, Loader2, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
+import { applyEvent, Steps, type StepView } from "@/components/steps";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { stripAnsi } from "@/lib/ansi";
 import { message } from "@/lib/errors";
 import { bytes, releaseDate } from "@/lib/format";
 import { keys, useReleases } from "@/lib/queries";
 import { cn } from "@/lib/utils";
-import { Apps, type Event, type Info, type Preflight, type Result, type State, type Step } from "@/mygo";
+import { Apps, type Event, type Info, type Preflight, type Result, type Step } from "@/mygo";
 
-const stepLabels: Record<Step, string> = {
+const deployLabels: Record<Step, string> = {
   check: "检查文件",
   upload: "上传",
   link: "链接持久路径",
@@ -28,68 +28,6 @@ const stepLabels: Record<Step, string> = {
   rollback: "回滚",
   cleanup: "清理旧版本",
 };
-
-interface StepView {
-  step: Step;
-  state: State;
-  message?: string;
-  progress?: number;
-  warnings: string[];
-}
-
-/** applyEvent folds a progress event into the list of steps. */
-function applyEvent(steps: StepView[], e: Event): StepView[] {
-  const i = steps.findIndex((s) => s.step === e.step);
-  const prev = i >= 0 ? steps[i]! : { step: e.step, state: e.state, warnings: [] };
-  const next: StepView =
-    e.state === "warning"
-      ? { ...prev, warnings: [...prev.warnings, e.message ?? ""] }
-      : { ...prev, state: e.state, message: e.message ?? (e.state === "running" ? undefined : prev.message), progress: e.progress };
-  return i >= 0 ? steps.map((s, j) => (j === i ? next : s)) : [...steps, next];
-}
-
-function StepIcon({ state }: { state: State }) {
-  const c = "size-4 shrink-0";
-  switch (state) {
-    case "running":
-      return <Loader2 className={cn(c, "text-muted-foreground animate-spin")} />;
-    case "done":
-      return <Check className={cn(c, "text-success")} />;
-    case "failed":
-      return <X className={cn(c, "text-destructive")} />;
-    case "skipped":
-      return <Minus className={cn(c, "text-muted-foreground")} />;
-    default:
-      return <TriangleAlert className={cn(c, "text-warning")} />;
-  }
-}
-
-export function Steps({ steps }: { steps: StepView[] }) {
-  return (
-    <ol className="space-y-1.5">
-      {steps.map((s) => (
-        <li key={s.step} className="text-sm">
-          <div className="flex items-center gap-2">
-            <StepIcon state={s.state} />
-            <span className={cn(s.state === "skipped" && "text-muted-foreground")}>{stepLabels[s.step]}</span>
-            {s.message && <span className={cn("text-muted-foreground selectable truncate text-xs", s.state === "failed" && "text-destructive")}>{s.message}</span>}
-          </div>
-          {s.step === "upload" && s.state === "running" && (
-            <div className="mt-1 ml-6 flex items-center gap-2">
-              <Progress value={(s.progress ?? 0) * 100} className="h-1.5 max-w-xs" />
-              <span className="text-muted-foreground text-xs tabular-nums">{Math.round((s.progress ?? 0) * 100)}%</span>
-            </div>
-          )}
-          {s.warnings.map((w, i) => (
-            <div key={i} className="text-warning mt-0.5 ml-6 text-xs">
-              {w}
-            </div>
-          ))}
-        </li>
-      ))}
-    </ol>
-  );
-}
 
 function ResultBox({ result, kind }: { result: Result; kind: "deploy" | "rollback" }) {
   const verb = kind === "deploy" ? "发布" : "回滚";
@@ -248,7 +186,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
 
         {steps.length > 0 && (
           <div className="rounded-lg border p-4">
-            <Steps steps={steps} />
+            <Steps steps={steps} labels={deployLabels} />
           </div>
         )}
         {result && <ResultBox result={result} kind={resultKind} />}
