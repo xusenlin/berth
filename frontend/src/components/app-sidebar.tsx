@@ -28,6 +28,7 @@ import {
 import { useNav } from "@/lib/nav";
 import { useServers } from "@/lib/queries";
 import { useTheme, type Theme } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
   const { route, go } = useNav();
@@ -45,40 +46,63 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>服务器</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            服务器
+            {!!servers.data?.length && <span className="ml-1.5 tabular-nums">{servers.data.length}</span>}
+          </SidebarGroupLabel>
           <SidebarGroupAction title="添加服务器" onClick={() => setAdding(true)}>
             <Plus />
           </SidebarGroupAction>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {servers.isLoading &&
                 Array.from({ length: 3 }, (_, i) => (
                   <SidebarMenuItem key={i}>
-                    <SidebarMenuSkeleton showIcon />
+                    <SidebarMenuSkeleton showIcon className="h-12" />
                   </SidebarMenuItem>
                 ))}
-              {servers.data?.map((s) => (
-                <SidebarMenuItem key={s.server.id}>
-                  <SidebarMenuButton
-                    isActive={route.server === s.server.id}
-                    onClick={() => go({ server: s.server.id })}
-                    className="h-auto py-1.5"
-                    title={`${s.server.user}@${s.server.host}`}
-                  >
-                    <ServerDot status={s.status} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate">{s.server.name}</div>
-                      <div className="text-muted-foreground truncate text-xs">{s.server.host}</div>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {servers.data?.map((s) => {
+                const active = route.server === s.server.id;
+                return (
+                  <SidebarMenuItem key={s.server.id}>
+                    <SidebarMenuButton
+                      size="lg"
+                      isActive={active}
+                      onClick={() => go({ server: s.server.id })}
+                      className="gap-3"
+                      title={`${s.server.user}@${s.server.host}:${s.server.port}`}
+                    >
+                      <div
+                        className={cn(
+                          "relative flex size-8 shrink-0 items-center justify-center rounded-lg border shadow-xs transition-colors",
+                          active ? "bg-brand border-brand text-white" : "bg-background text-muted-foreground",
+                        )}
+                      >
+                        <ServerIcon className="size-4" />
+                        <ServerDot
+                          status={s.offline ? "disconnected" : s.status}
+                          className={cn("absolute -right-0.5 -bottom-0.5 size-2.5 ring-2", active ? "ring-sidebar-accent" : "ring-sidebar")}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1 leading-tight">
+                        <div className="truncate text-sm font-medium">{s.server.name}</div>
+                        <div className="text-muted-foreground truncate text-xs">
+                          {s.server.user}@{s.server.host}
+                        </div>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
               {servers.data?.length === 0 && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setAdding(true)} className="text-muted-foreground">
-                    <ServerIcon />
-                    还没有服务器
-                  </SidebarMenuButton>
+                  <button
+                    onClick={() => setAdding(true)}
+                    className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent flex w-full flex-col items-center gap-2 rounded-lg border border-dashed px-3 py-5 text-xs"
+                  >
+                    <ServerIcon className="size-5" />
+                    还没有服务器，点击添加
+                  </button>
                 </SidebarMenuItem>
               )}
             </SidebarMenu>

@@ -6,6 +6,7 @@
 :root {
   color-scheme: light;
   --radius: 0.625rem;
+  --brand: #0f8c88; /* the icon's teal, design/icon.svg */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -91,6 +92,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-sidebar: var(--sidebar);

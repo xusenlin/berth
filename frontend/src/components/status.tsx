@@ -19,8 +19,8 @@ export const serverLabels: Record<Status, string> = {
   disconnected: "未连接",
 };
 
-export function ServerDot({ status }: { status: Status }) {
-  return <Dot className={serverColors[status]} />;
+export function ServerDot({ status, className }: { status: Status; className?: string }) {
+  return <Dot className={cn(serverColors[status], className)} />;
 }
 
 /** appState sums up an app's unit for display. */
