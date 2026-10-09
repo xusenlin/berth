@@ -122,9 +122,12 @@ WantedBy={{target}}
   "health": { "type": "http", "path": "/api/health", "timeout": 10 },
   "backup": true,
   "keepReleases": 5,
-  "current": "20261009-151800"
+  "current": "20261009-151800",
+  "note": "官网后端 API，负责人 senlin"
 }
 ```
+
+`note` 是用户随时可改的备注（最多 2000 字），只改写 app.json，不影响 unit 和运行中的进程；在设置中保存其他字段时保留服务器上的备注。
 
 `args` 可用变量：`{{port}}`、`{{shared}}`（shared 目录绝对路径）。
 
@@ -277,6 +280,7 @@ WantedBy={{target}}
 
 - [x] 手动回滚到任意历史版本
 - [x] 环境变量编辑
+- [x] 应用备注
 - [x] 界面内编辑 `shared/` 下的配置文件
 - [ ] SSH 隧道访问仅监听本地的端口
 - [ ] 选择项目目录后自动交叉编译再发版

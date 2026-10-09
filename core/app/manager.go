@@ -279,6 +279,8 @@ func (m *Manager) Update(ctx context.Context, a App) (App, error) {
 		return App{}, err
 	}
 	a.Current = old.App.Current
+	// The note is edited on its own (SetNote): keep the server's.
+	a.Note = old.App.Note
 	if a.Port > 0 && a.Port != old.App.Port {
 		used, err := m.UsedPorts(ctx, a.Name)
 		if err != nil {
@@ -414,6 +416,24 @@ func (m *Manager) Do(ctx context.Context, name string, act Action) error {
 		return fmt.Errorf("%s 失败：%w", act, err)
 	}
 	return nil
+}
+
+// SetNote replaces an app's note, leaving everything else as it is.
+func (m *Manager) SetNote(ctx context.Context, name, note string) (string, error) {
+	note, err := NormalizeNote(note)
+	if err != nil {
+		return "", err
+	}
+	info, err := m.Get(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	if info.Error != "" {
+		return "", errors.New(info.Error)
+	}
+	a := info.App
+	a.Note = note
+	return note, m.WriteJSON(a)
 }
 
 // SetAutostart enables or disables starting an app at boot.

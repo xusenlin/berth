@@ -74,6 +74,15 @@ func (a *Apps) Update(ctx context.Context, serverID string, spec app.App) (app.A
 	return m.Update(ctx, spec)
 }
 
+// SetNote replaces an app's note and returns it as saved.
+func (a *Apps) SetNote(ctx context.Context, serverID, name, note string) (string, error) {
+	m, err := a.B.manager(ctx, serverID)
+	if err != nil {
+		return "", err
+	}
+	return m.SetNote(ctx, name, note)
+}
+
 // Delete stops an app and removes it, with its releases and data.
 func (a *Apps) Delete(ctx context.Context, serverID, name string) error {
 	m, err := a.B.manager(ctx, serverID)

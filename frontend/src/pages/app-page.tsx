@@ -8,6 +8,7 @@ import { Code } from "@/components/copy";
 import { DeployPanel } from "@/components/deploy-panel";
 import { FilesPanel } from "@/components/files-panel";
 import { LogViewer } from "@/components/log-viewer";
+import { NoteCard } from "@/components/note-card";
 import { PageHeader } from "@/components/page-header";
 import { AppState } from "@/components/status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -184,6 +185,7 @@ function OverviewTab({ serverId, info, host, onDeploy }: { serverId: string; inf
           <AlertDescription>查看"日志"了解原因。</AlertDescription>
         </Alert>
       )}
+      <NoteCard serverId={serverId} name={a.name} note={a.note ?? ""} />
       <div className="bg-card grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border p-4 md:grid-cols-4">
         <Item label="状态">
           <AppState status={s} current={info.current} />

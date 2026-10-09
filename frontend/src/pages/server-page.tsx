@@ -380,9 +380,16 @@ function AppsTable({ serverId, apps, onCreate }: { serverId: string; apps: Retur
         <TableBody>
           {apps.data.map((a) => (
             <TableRow key={a.app.name} className="cursor-pointer" onClick={() => go({ server: serverId, app: a.app.name })}>
-              <TableCell className="font-medium">
-                {a.app.name}
-                {a.error && <span className="text-destructive ml-2 text-xs">{a.error}</span>}
+              <TableCell className="max-w-72">
+                <div className="font-medium">
+                  {a.app.name}
+                  {a.error && <span className="text-destructive ml-2 text-xs font-normal">{a.error}</span>}
+                </div>
+                {a.app.note && (
+                  <div className="text-muted-foreground truncate text-xs" title={a.app.note}>
+                    {a.app.note.split("\n")[0]}
+                  </div>
+                )}
               </TableCell>
               <TableCell className="font-mono">{a.app.port || "-"}</TableCell>
               <TableCell className="font-mono text-xs">{release(a.current)}</TableCell>

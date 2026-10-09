@@ -240,6 +240,11 @@ export function AppForm({
           </div>
         </Field>
 
+        {creating && (
+          <Field label="备注" className="col-span-6" hint="可选，创建后可在应用概览中随时修改">
+            <Textarea className="min-h-16" maxLength={2000} value={a.note ?? ""} onChange={(e) => set("note", e.target.value)} placeholder="用途、负责人、访问方式……" />
+          </Field>
+        )}
         <label className="col-span-3 flex items-center justify-between gap-3 rounded-lg border p-3">
           <div>
             <div className="text-sm font-medium">开机自启</div>

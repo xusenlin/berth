@@ -22,6 +22,8 @@ export interface App {
   keepReleases: number;
   current?: string;
   preset?: string;
+  /** Note is the user's free text about the app. */
+  note?: string;
 }
 
 /** Status is the runtime state of an app's unit. */
@@ -504,6 +506,10 @@ export const Apps = {
   /** SetAutostart turns starting at boot on or off. */
   setAutostart(serverID: string, name: string, on: boolean): Promise<void> {
     return call("Apps.SetAutostart", serverID, name, on);
+  },
+  /** SetNote replaces an app's note and returns it as saved. */
+  setNote(serverID: string, name: string, note: string): Promise<string> {
+    return call("Apps.SetNote", serverID, name, note);
   },
   /** SuggestPort returns a free port in the server's range, 0 when none is. */
   suggestPort(serverID: string): Promise<number> {

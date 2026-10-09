@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/xusenlin/berth/core/server"
 )
@@ -57,6 +58,8 @@ type App struct {
 	KeepReleases int               `json:"keepReleases"`
 	Current      string            `json:"current,omitempty"`
 	Preset       string            `json:"preset,omitempty"`
+	// Note is the user's free text about the app.
+	Note string `json:"note,omitempty"`
 }
 
 var (
@@ -141,10 +144,27 @@ func (a *App) Normalize() error {
 		a.Health.Timeout = 10
 	}
 	a.Health.Timeout = min(a.Health.Timeout, 300)
+	note, err := NormalizeNote(a.Note)
+	if err != nil {
+		return err
+	}
+	a.Note = note
 	if a.KeepReleases <= 0 {
 		a.KeepReleases = 5
 	}
 	return nil
+}
+
+// MaxNote is the longest note, in characters.
+const MaxNote = 2000
+
+// NormalizeNote trims a note and checks its length.
+func NormalizeNote(note string) (string, error) {
+	note = strings.TrimSpace(strings.ReplaceAll(note, "\r\n", "\n"))
+	if utf8.RuneCountInString(note) > MaxNote {
+		return "", fmt.Errorf("备注最多 %d 个字", MaxNote)
+	}
+	return note, nil
 }
 
 // checkRelPath accepts a clean relative path inside a directory.

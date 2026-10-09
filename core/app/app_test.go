@@ -145,3 +145,15 @@ func TestParseReleases(t *testing.T) {
 		t.Errorf("rels = %+v", rels)
 	}
 }
+
+func TestNormalizeNote(t *testing.T) {
+	if n, err := NormalizeNote("  生产环境\r\n勿动 \n"); err != nil || n != "生产环境\n勿动" {
+		t.Errorf("note = %q %v", n, err)
+	}
+	if _, err := NormalizeNote(strings.Repeat("字", MaxNote+1)); err == nil {
+		t.Error("long note accepted")
+	}
+	if _, err := NormalizeNote(strings.Repeat("字", MaxNote)); err != nil {
+		t.Error(err)
+	}
+}

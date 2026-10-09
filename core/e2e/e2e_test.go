@@ -326,6 +326,21 @@ func run(t *testing.T, user string, mode server.Mode) {
 		t.Errorf("shared files = %v", names)
 	}
 
+	// Notes: set on their own, kept by updates of the settings.
+	if _, err := m.SetNote(ctx, "e2e", "  对外 API\n负责人：张三 "); err != nil {
+		t.Fatal(err)
+	}
+	info2, _ := m.Get(ctx, "e2e")
+	spec := info2.App
+	spec.Note = "stale"
+	spec.KeepReleases = 3
+	if _, err := m.Update(ctx, spec); err != nil {
+		t.Fatal(err)
+	}
+	if info2, _ = m.Get(ctx, "e2e"); info2.App.Note != "对外 API\n负责人：张三" || info2.App.KeepReleases != 3 {
+		t.Errorf("note after update = %q, keep = %d", info2.App.Note, info2.App.KeepReleases)
+	}
+
 	// Manual rollback to v1.
 	if res, err = d.Rollback(ctx, "e2e", rel1, nil); err != nil || !res.OK {
 		t.Fatalf("rollback: %v %+v", err, res)
