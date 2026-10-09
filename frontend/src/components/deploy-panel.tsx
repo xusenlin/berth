@@ -91,12 +91,13 @@ export function Steps({ steps }: { steps: StepView[] }) {
   );
 }
 
-function ResultBox({ result }: { result: Result }) {
+function ResultBox({ result, kind }: { result: Result; kind: "deploy" | "rollback" }) {
+  const verb = kind === "deploy" ? "发布" : "回滚";
   if (result.ok) {
     return (
       <Alert>
         <CircleCheck className="text-success!" />
-        <AlertTitle>发布成功</AlertTitle>
+        <AlertTitle>{verb}成功</AlertTitle>
         <AlertDescription>当前版本 {releaseDate(result.release)}</AlertDescription>
       </Alert>
     );
@@ -104,7 +105,7 @@ function ResultBox({ result }: { result: Result }) {
   return (
     <Alert variant="destructive">
       <CircleX />
-      <AlertTitle>{result.rolledBack ? "发布失败，已回滚" : "发布失败"}</AlertTitle>
+      <AlertTitle>{result.rolledBack ? `${verb}失败，已切回原版本` : `${verb}失败`}</AlertTitle>
       <AlertDescription>
         <p className="selectable break-all">{result.error}</p>
         {result.logs && (
@@ -129,6 +130,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
   const [running, setRunning] = useState<"" | "deploy" | "rollback">("");
   const [steps, setSteps] = useState<StepView[]>([]);
   const [result, setResult] = useState<Result | null>(null);
+  const [resultKind, setResultKind] = useState<"deploy" | "rollback">("deploy");
   const runningRef = useRef(running);
   runningRef.current = running;
 
@@ -160,6 +162,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
 
   const run = async (kind: "deploy" | "rollback", release?: string) => {
     setRunning(kind);
+    setResultKind(kind);
     setSteps([]);
     setResult(null);
     const ch = new Channel<Event>((e) => setSteps((s) => applyEvent(s, e)));
@@ -248,7 +251,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
             <Steps steps={steps} />
           </div>
         )}
-        {result && <ResultBox result={result} />}
+        {result && <ResultBox result={result} kind={resultKind} />}
       </section>
 
       <section>
@@ -259,6 +262,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
               <TableRow>
                 <TableHead>版本</TableHead>
                 <TableHead>发布时间</TableHead>
+                <TableHead>来源文件</TableHead>
                 <TableHead className="text-right">大小</TableHead>
                 <TableHead className="w-32" />
               </TableRow>
@@ -275,6 +279,9 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
                     )}
                   </TableCell>
                   <TableCell>{releaseDate(r.id)}</TableCell>
+                  <TableCell className="text-muted-foreground max-w-56 truncate" title={r.source}>
+                    {r.source || "-"}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{bytes(r.size)}</TableCell>
                   <TableCell className="text-right">
                     {!r.current && (
@@ -296,14 +303,14 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
               ))}
               {releases.data?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground py-6 text-center">
+                  <TableCell colSpan={5} className="text-muted-foreground py-6 text-center">
                     还没有发布过版本
                   </TableCell>
                 </TableRow>
               )}
               {releases.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground py-6 text-center">
+                  <TableCell colSpan={5} className="text-muted-foreground py-6 text-center">
                     <Loader2 className="mx-auto size-4 animate-spin" />
                   </TableCell>
                 </TableRow>

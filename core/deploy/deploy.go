@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -451,7 +452,9 @@ func (d *Deployer) upload(ctx context.Context, pkg *Package, rel, entry string, 
 		pw.CloseWithError(err)
 	}()
 	q := ssh.Quote(rel)
-	cmd := "mkdir -p " + q + " && tar -xzf - --no-same-owner -C " + q + " && chmod +x " + ssh.Quote(rel+"/"+entry) + " && test -f " + ssh.Quote(rel+"/"+entry)
+	cmd := "mkdir -p " + q + " && tar -xzf - --no-same-owner -C " + q + " && chmod +x " + ssh.Quote(rel+"/"+entry) + " && test -f " + ssh.Quote(rel+"/"+entry) +
+		// The file the release came from, which the list of releases shows.
+		" && printf %s " + ssh.Quote(filepath.Base(pkg.Path)) + " > " + ssh.Quote(rel+"/"+app.ReleaseInfoFile)
 	res, err := d.M.C.Run(ctx, cmd, pr)
 	pr.CloseWithError(errors.New("upload ended"))
 	if err != nil {

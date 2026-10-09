@@ -245,6 +245,11 @@ export interface Release {
   id: string;
   size: number;
   current: boolean;
+  /**
+   * Source is the name of the uploaded file, "" for releases Berth did
+   * not record it for.
+   */
+  source: string;
 }
 
 /** ReservedPort is the port of an app. */

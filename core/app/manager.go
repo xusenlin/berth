@@ -435,30 +435,39 @@ func (m *Manager) SetAutostart(ctx context.Context, name string, on bool) error 
 	return err
 }
 
+// ReleaseInfoFile, in a release directory, holds the name of the file the
+// release was uploaded from.
+const ReleaseInfoFile = ".berth-release"
+
 // Releases returns the release directories of an app, newest first.
 func (m *Manager) Releases(ctx context.Context, name string) ([]Release, string, error) {
 	p := PathsOf(m.Env, name)
-	out, err := m.C.Output(ctx, "cd "+ssh.Quote(p.Releases)+" 2>/dev/null || exit 0; for d in */; do d=${d%/}; echo \"$d $(du -sk \"$d\" | cut -f1)\"; done; echo @@current; readlink ../current 2>/dev/null")
+	out, err := m.C.Output(ctx, "cd "+ssh.Quote(p.Releases)+" 2>/dev/null || exit 0; for d in */; do d=${d%/}; [ -d \"$d\" ] || continue; "+
+		"printf '%s\\t%s\\t%s\\n' \"$d\" \"$(du -sk \"$d\" | cut -f1)\" \"$(head -c 255 \"$d/"+ReleaseInfoFile+"\" 2>/dev/null | tr -d '\\n\\t')\"; done; "+
+		"echo @@current; readlink ../current 2>/dev/null")
 	if err != nil {
 		return nil, "", err
 	}
 	list, cur, _ := strings.Cut(out, "@@current")
-	current := releaseOf(cur)
+	return parseReleases(list, releaseOf(cur)), releaseOf(cur), nil
+}
+
+func parseReleases(list, current string) []Release {
 	var rels []Release
 	for line := range strings.Lines(list) {
-		f := strings.Fields(line)
-		if len(f) == 0 || f[0] == "*" {
+		f := strings.SplitN(strings.TrimRight(line, "\n"), "\t", 3)
+		if len(f) < 2 || f[0] == "" {
 			continue
 		}
-		r := Release{ID: f[0], Current: f[0] == current}
-		if len(f) > 1 {
-			kb, _ := strconv.ParseInt(f[1], 10, 64)
-			r.Size = kb * 1024
+		kb, _ := strconv.ParseInt(f[1], 10, 64)
+		r := Release{ID: f[0], Size: kb * 1024, Current: f[0] == current}
+		if len(f) == 3 {
+			r.Source = f[2]
 		}
 		rels = append(rels, r)
 	}
 	slices.SortFunc(rels, func(a, b Release) int { return strings.Compare(b.ID, a.ID) })
-	return rels, current, nil
+	return rels
 }
 
 // Release is one release directory.
@@ -466,4 +475,7 @@ type Release struct {
 	ID      string `json:"id"`
 	Size    int64  `json:"size"`
 	Current bool   `json:"current"`
+	// Source is the name of the uploaded file, "" for releases Berth did
+	// not record it for.
+	Source string `json:"source"`
 }

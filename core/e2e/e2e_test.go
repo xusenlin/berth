@@ -277,6 +277,9 @@ func run(t *testing.T, user string, mode server.Mode) {
 	if err != nil || len(rels) != 2 || cur != rel2 {
 		t.Fatalf("releases = %+v %q %v", rels, cur, err)
 	}
+	if rels[0].Source != "testapp" || rels[1].Source != "release.zip" {
+		t.Errorf("release sources = %+v", rels)
+	}
 
 	// Editing shared files: create, read, update, refuse stale writes and
 	// escapes through symlinks.

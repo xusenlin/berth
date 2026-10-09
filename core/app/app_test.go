@@ -131,3 +131,17 @@ func TestPorts(t *testing.T) {
 		t.Errorf("PickPort full = %d", p)
 	}
 }
+
+func TestParseReleases(t *testing.T) {
+	list := "20261009-151800\t7880\tmyapp-linux-amd64.zip\n20261010-090000\t8000\t\n20261009-151800-2\t10\tmy app v2\n"
+	rels := parseReleases(list, "20261009-151800")
+	if len(rels) != 3 {
+		t.Fatalf("got %+v", rels)
+	}
+	if rels[0].ID != "20261010-090000" || rels[0].Source != "" || rels[0].Size != 8000*1024 {
+		t.Errorf("newest = %+v", rels[0])
+	}
+	if rels[1].Source != "my app v2" || rels[2].Source != "myapp-linux-amd64.zip" || !rels[2].Current {
+		t.Errorf("rels = %+v", rels)
+	}
+}
