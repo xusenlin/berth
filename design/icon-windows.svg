@@ -1,0 +1,12 @@
+<!-- Berth's Windows icon: design/icon.svg without the macOS grid's margin
+     and shadow, since Windows draws icons edge to edge. `task icon` renders
+     design/icon-windows.png. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="#0F8C88"/>
+  <!-- lucide "anchor", 24 px grid scaled 22× around the center -->
+  <g transform="translate(248 248) scale(22)" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 22V8"/>
+    <path d="M5 12H2a10 10 0 0 0 20 0h-3"/>
+    <circle cx="12" cy="5" r="3"/>
+  </g>
+</svg>

@@ -9,7 +9,7 @@ export default defineConfig({
   // The bundle is embedded in the app, not downloaded: size warnings do not apply.
   build: { chunkSizeWarningLimit: 2000 },
   server: {
-    // The app loads this address during `mygo dev` (devUrl in mygo.json).
+    // The app loads this address during `mygo dev` (devUrl in mygo.config.ts).
     port: 5173,
     strictPort: true,
   },

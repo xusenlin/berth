@@ -27,7 +27,7 @@
 | 语言 | Go 1.27+（当前 1.27.2） | MyGo v0.3.x 要求 Go ≥ 1.27.1 |
 | 桌面壳 | MyGo（`egoist/mygo`，v0.3.5） | 纯 Go 无 cgo，使用系统 webview；项目很新，见风险一节 |
 | 前端 | React + Vite + Tailwind + shadcn/ui | 以 sidebar 区块为布局基础 |
-| 构建 | `go tool mygo`（go.mod 中固定版本）+ pnpm | 用 `mygo.json` 而非 `mygo.config.ts`，不依赖 Bun |
+| 构建 | `go tool mygo`（go.mod 中固定版本）+ pnpm | 用 `mygo.config.ts`（由 Node 求值，不依赖 Bun），Windows 构建经环境变量换用无边距图标 |
 | 本地存储 | 单个 `config.json` | 位于系统用户配置目录，不用数据库 |
 | 密码存储 | 系统钥匙串（`zalando/go-keyring`） | 密码不落入 JSON；macOS 下调用系统 `security` 命令，同样无 cgo |
 | SSH | `golang.org/x/crypto/ssh` + `pkg/sftp` | 每台服务器一条长连接，带 keepalive |

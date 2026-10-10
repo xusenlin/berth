@@ -12,7 +12,7 @@ task build      # 打包 macOS（universal）、Windows、Linux 三个平台到 
 task            # 列出全部任务：test、e2e、check、icon、build:mac 等
 ```
 
-图标源文件是 `design/icon.svg`，修改后执行 `task icon` 重新生成 `design/icon.png`。
+图标源文件是 `design/icon.svg`（Windows 用去掉边距的 `design/icon-windows.svg`），修改后执行 `task icon` 重新生成同名 PNG。
 
 ## 发布签名安装包
 

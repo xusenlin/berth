@@ -31,6 +31,7 @@ func main() {
 	if debugSecrets != nil {
 		secrets = debugSecrets()
 	}
+	services.ApplyTheme(store.Settings().Theme)
 	b := services.NewBackend(store, secrets)
 	mygo.Bind(&services.Servers{B: b}, &services.Apps{B: b}, &services.Settings{B: b})
 

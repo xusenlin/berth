@@ -1,6 +1,6 @@
 #!/bin/sh
 # Signs a Windows executable or installer for `mygo build` (windows.signCommand
-# in mygo.json) with the code signing certificate in WINDOWS_PFX, whose password
+# in mygo.config.ts) with the code signing certificate in WINDOWS_PFX, whose password
 # is WINDOWS_PFX_PASSWORD. Without WINDOWS_PFX the files stay unsigned, as in
 # everyday builds. Needs osslsigncode (brew install osslsigncode).
 set -e
