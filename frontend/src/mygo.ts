@@ -452,6 +452,8 @@ export interface ServerView {
 export interface Settings {
   /** system, light or dark */
   theme: string;
+  /** harbor, dusk or ember */
+  palette: string;
 }
 
 /** SharedFile is a file or directory under an app's shared/. */

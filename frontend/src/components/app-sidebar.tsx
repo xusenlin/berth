@@ -1,16 +1,10 @@
 import { useState } from "react";
-import { Monitor, Moon, Plus, Server as ServerIcon, Sun } from "lucide-react";
+import { Palette, Plus, Server as ServerIcon } from "lucide-react";
+import { AppearanceDialog } from "@/components/appearance-dialog";
 import { Logo } from "@/components/logo";
 import { ServerDialog } from "@/components/server-dialog";
 import { ServerDot } from "@/components/status";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -27,22 +21,20 @@ import {
 } from "@/components/ui/sidebar";
 import { useNav } from "@/lib/nav";
 import { useServers } from "@/lib/queries";
-import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
   const { route, go } = useNav();
   const servers = useServers();
   const [adding, setAdding] = useState(false);
-  const { theme, setTheme } = useTheme();
-  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  const [appearance, setAppearance] = useState(false);
 
   return (
     <Sidebar>
       {/* Room for the traffic lights; the strip moves the window. */}
       <SidebarHeader className="drag h-11 shrink-0 flex-row items-center gap-2 pl-[max(calc(var(--mygo-titlebar-inset-left,0px)+10px),0.75rem)]">
-        <Logo className="size-5" />
-        <span className="text-sm font-semibold">Berth</span>
+        <Logo className="size-5 shadow-sm" />
+        <span className="text-sm font-semibold tracking-tight">Berth</span>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -69,13 +61,13 @@ export function AppSidebar() {
                       size="lg"
                       isActive={active}
                       onClick={() => go({ server: s.server.id })}
-                      className="gap-3"
+                      className="data-[active=true]:shadow-surface data-[active=true]:bg-sidebar-accent gap-3 transition-colors"
                       title={`${s.server.user}@${s.server.host}:${s.server.port}`}
                     >
                       <div
                         className={cn(
                           "relative flex size-8 shrink-0 items-center justify-center rounded-lg border shadow-xs transition-colors",
-                          active ? "bg-brand border-brand text-white" : "bg-background text-muted-foreground",
+                          active ? "bg-primary border-primary text-primary-foreground" : "bg-background text-muted-foreground",
                         )}
                       >
                         <ServerIcon className="size-4" />
@@ -98,7 +90,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <button
                     onClick={() => setAdding(true)}
-                    className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent flex w-full flex-col items-center gap-2 rounded-lg border border-dashed px-3 py-5 text-xs"
+                    className="text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-sidebar-accent flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-3 py-6 text-xs transition-colors"
                   >
                     <ServerIcon className="size-5" />
                     还没有服务器，点击添加
@@ -109,27 +101,23 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="flex-row items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+      <SidebarFooter className="flex-row items-center justify-between border-t">
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => setAdding(true)}>
           <Plus />
           添加服务器
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8" title="外观">
-              <ThemeIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
-              <DropdownMenuRadioItem value="system">跟随系统</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="light">浅色</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="dark">深色</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground size-8"
+          title="外观"
+          onClick={() => setAppearance(true)}
+        >
+          <Palette />
+        </Button>
       </SidebarFooter>
       <ServerDialog open={adding} onOpenChange={setAdding} />
+      <AppearanceDialog open={appearance} onOpenChange={setAppearance} />
     </Sidebar>
   );
 }

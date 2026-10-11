@@ -104,7 +104,7 @@ export function FilesPanel({ serverId, info }: { serverId: string; info: Info })
 
   return (
     <div className="grid h-full min-h-0 grid-cols-[16rem_1fr] gap-4">
-      <div className="flex min-h-0 flex-col rounded-lg border">
+      <div className="surface flex min-h-0 flex-col overflow-hidden">
         <div className="flex items-center gap-1 border-b px-3 py-2">
           <span className="flex-1 font-mono text-xs">shared/</span>
           <Button variant="ghost" size="icon" className="size-7" title="新建文件" onClick={() => setCreating(true)}>
@@ -194,12 +194,12 @@ export function FilesPanel({ serverId, info }: { serverId: string; info: Info })
                   requestAnimationFrame(() => el.setSelectionRange(s + 2, s + 2));
                 }
               }}
-              className="bg-background focus-visible:ring-ring/50 min-h-0 flex-1 resize-none rounded-lg border p-3 font-mono text-xs leading-5 outline-none focus-visible:ring-[3px]"
+              className="bg-card shadow-surface focus-visible:ring-ring/50 min-h-0 flex-1 resize-none rounded-xl border p-3 font-mono text-xs leading-5 outline-none focus-visible:ring-[3px]"
             />
             <p className="text-muted-foreground text-xs">⌘S 保存。保存时若文件已在服务器上被修改，会拒绝覆盖。</p>
           </>
         ) : (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-lg border border-dashed p-6 text-center text-sm">
+          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-xl border border-dashed p-6 text-center text-sm">
             {error ? <span className="text-destructive selectable">{error}</span> : "选择左侧的文件进行编辑"}
           </div>
         )}

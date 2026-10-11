@@ -128,11 +128,13 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
       <section className="space-y-3">
         <div
           className={cn(
-            "flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center",
+            "bg-card/50 hover:border-primary/50 flex flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors",
             running && "pointer-events-none opacity-60",
           )}
         >
-          <Upload className="text-muted-foreground size-6" />
+          <span className="bg-primary/10 text-primary flex size-11 items-center justify-center rounded-full">
+            <Upload className="size-5" />
+          </span>
           <div className="text-sm">
             拖入文件，或
             <Button variant="link" className="h-auto px-1" onClick={async () => choose(await Apps.pickRelease())}>
@@ -185,7 +187,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
         )}
 
         {steps.length > 0 && (
-          <div className="rounded-lg border p-4">
+          <div className="surface p-5">
             <Steps steps={steps} labels={deployLabels} />
           </div>
         )}
@@ -194,7 +196,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
 
       <section>
         <h3 className="mb-2 text-sm font-medium">历史版本</h3>
-        <div className="rounded-lg border">
+        <div className="surface overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>

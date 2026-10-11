@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArchiveRestore, Cpu, HardDrive, Loader2, MemoryStick, MoreHorizontal, Pencil, Plus, Plug, RefreshCw, Server, Trash2, TriangleAlert, Unplug } from "lucide-react";
+import { ArchiveRestore, Boxes, Cpu, HardDrive, Loader2, MemoryStick, MoreHorizontal, Pencil, Plus, Plug, RefreshCw, Server, Trash2, TriangleAlert, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { AppDialog } from "@/components/app-form";
 import { Confirm } from "@/components/confirm";
@@ -117,18 +117,21 @@ export function ServerPage({ serverId }: { serverId: string }) {
         }
       >
         <ServerDot status={status} />
-        <span className="truncate font-medium">{s.name}</span>
+        <span className="truncate font-semibold tracking-tight">{s.name}</span>
         <span className="text-muted-foreground truncate text-sm">
           {s.user}@{s.host}
           {s.port !== 22 && `:${s.port}`}
         </span>
-        <span className="text-muted-foreground text-xs">{offline && !connecting ? "已断开" : serverLabels[status]}</span>
+        <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-xs">{offline && !connecting ? "已断开" : serverLabels[status]}</span>
       </PageHeader>
 
-      <div className="flex-1 space-y-5 overflow-y-auto p-5">
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
         {offline && !connecting && (
-          <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-sm">
-            <Unplug className="size-6" />
+          <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-xl border border-dashed py-14 text-sm">
+            <span className="bg-muted flex size-11 items-center justify-center rounded-full">
+              <Unplug className="size-5" />
+            </span>
             已断开与 {s.name} 的连接，不会自动重连
             <Button size="sm" onClick={connect}>
               <Plug />
@@ -184,14 +187,15 @@ export function ServerPage({ serverId }: { serverId: string }) {
                 </div>
               )}
             </div>
-            <TabsContent value="apps" className="mt-3">
+            <TabsContent value="apps" className="mt-4">
               <AppsTable serverId={serverId} apps={apps} onCreate={() => setCreating(true)} />
             </TabsContent>
-            <TabsContent value="ports" className="mt-3">
+            <TabsContent value="ports" className="mt-4">
               <PortsPanel serverId={serverId} ports={ports.data} />
             </TabsContent>
           </Tabs>
         )}
+        </div>
       </div>
       <ServerDialog open={editing} onOpenChange={setEditing} edit={view} />
       <AppDialog serverId={serverId} open={creating} onOpenChange={setCreating} />
@@ -258,10 +262,10 @@ function Meter({ value, warnAt = 80 }: { value: number; warnAt?: number }) {
 
 function Card({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <div className="bg-card min-w-0 rounded-lg border p-3.5">
-      <div className="text-muted-foreground mb-2 flex items-center gap-1.5 text-xs [&>svg]:size-3.5">
-        {icon}
-        {title}
+    <div className="surface min-w-0 p-4">
+      <div className="text-muted-foreground mb-3 flex items-center gap-2 text-xs font-medium">
+        <span className="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-md [&>svg]:size-3.5">{icon}</span>
+        <span className="truncate">{title}</span>
       </div>
       {children}
     </div>
@@ -273,9 +277,9 @@ function OverviewCards({ serverId, data }: { serverId: string; data: Overview | 
   const [measuring, setMeasuring] = useState(false);
   if (!data) {
     return (
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-[92px] rounded-lg" />
+          <Skeleton key={i} className="h-[124px] rounded-xl" />
         ))}
       </div>
     );
@@ -284,7 +288,7 @@ function OverviewCards({ serverId, data }: { serverId: string; data: Overview | 
   const cpu = data.cpuPercent;
   const mem = percent(data.memUsed, data.memTotal);
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <Card icon={<Server />} title="系统">
         <div className="truncate text-sm font-medium" title={data.os}>
           {data.os || "Linux"}
@@ -295,12 +299,12 @@ function OverviewCards({ serverId, data }: { serverId: string; data: Overview | 
         <div className="text-muted-foreground mt-0.5 text-xs">已运行 {duration(data.uptime)}</div>
       </Card>
       <Card icon={<Cpu />} title={`CPU · ${data.cpus} 核`}>
-        <div className="mb-2 text-lg font-semibold tabular-nums">{cpu.toFixed(0)}%</div>
+        <div className="mb-2 text-xl font-semibold tracking-tight tabular-nums">{cpu.toFixed(0)}%</div>
         <Meter value={cpu} />
         <div className="text-muted-foreground mt-1.5 text-xs tabular-nums">负载 {data.load.map((l) => l.toFixed(2)).join(" ")}</div>
       </Card>
       <Card icon={<MemoryStick />} title="内存">
-        <div className="mb-2 text-lg font-semibold tabular-nums">
+        <div className="mb-2 text-xl font-semibold tracking-tight tabular-nums">
           {bytes(data.memUsed)} <span className="text-muted-foreground text-sm font-normal">/ {bytes(data.memTotal)}</span>
         </div>
         <Meter value={mem} />
@@ -311,7 +315,7 @@ function OverviewCards({ serverId, data }: { serverId: string; data: Overview | 
       <Card icon={<HardDrive />} title={`磁盘 · ${disk?.mount ?? "/"}`}>
         {disk ? (
           <>
-            <div className="mb-2 text-lg font-semibold tabular-nums">
+            <div className="mb-2 text-xl font-semibold tracking-tight tabular-nums">
               {bytes(disk.used)} <span className="text-muted-foreground text-sm font-normal">/ {bytes(disk.total)}</span>
             </div>
             <Meter value={percent(disk.used, disk.total)} />
@@ -360,7 +364,10 @@ function AppsTable({ serverId, apps, onCreate }: { serverId: string; apps: Retur
   }
   if (apps.data.length === 0) {
     return (
-      <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-10 text-sm">
+      <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-xl border border-dashed py-14 text-sm">
+        <span className="bg-primary/10 text-primary flex size-11 items-center justify-center rounded-full">
+          <Boxes className="size-5" />
+        </span>
         这台服务器上还没有应用
         <Button size="sm" variant="outline" onClick={onCreate}>
           <Plus />
@@ -370,7 +377,7 @@ function AppsTable({ serverId, apps, onCreate }: { serverId: string; apps: Retur
     );
   }
   return (
-    <div className="rounded-lg border">
+    <div className="surface overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
@@ -385,9 +392,9 @@ function AppsTable({ serverId, apps, onCreate }: { serverId: string; apps: Retur
         </TableHeader>
         <TableBody>
           {apps.data.map((a) => (
-            <TableRow key={a.app.name} className="cursor-pointer" onClick={() => go({ server: serverId, app: a.app.name })}>
+            <TableRow key={a.app.name} className="group cursor-pointer" onClick={() => go({ server: serverId, app: a.app.name })}>
               <TableCell className="max-w-72">
-                <div className="font-medium">
+                <div className="group-hover:text-primary font-medium transition-colors">
                   {a.app.name}
                   {a.error && <span className="text-destructive ml-2 text-xs font-normal">{a.error}</span>}
                 </div>

@@ -65,7 +65,7 @@ export function PortsPanel({ serverId, ports }: { serverId: string; ports: Ports
           当前以普通用户登录，只能看到自己进程的名称；其他用户的进程只显示端口。
         </p>
       )}
-      <div className="rounded-lg border">
+      <div className="surface overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

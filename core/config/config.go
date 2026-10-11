@@ -82,7 +82,8 @@ func (s *Server) Validate() error {
 
 // Settings are preferences of the app.
 type Settings struct {
-	Theme string `json:"theme"` // system, light or dark
+	Theme   string `json:"theme"`   // system, light or dark
+	Palette string `json:"palette"` // harbor, dusk or ember
 }
 
 // Config is the content of config.json.
@@ -111,7 +112,7 @@ type Store struct {
 // Open loads the configuration at path. A missing file is an empty
 // configuration.
 func Open(path string) (*Store, error) {
-	s := &Store{path: path, cfg: Config{Settings: Settings{Theme: "system"}}}
+	s := &Store{path: path, cfg: Config{Settings: Settings{Theme: "system", Palette: "harbor"}}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -124,6 +125,9 @@ func Open(path string) (*Store, error) {
 	}
 	if s.cfg.Settings.Theme == "" {
 		s.cfg.Settings.Theme = "system"
+	}
+	if s.cfg.Settings.Palette == "" {
+		s.cfg.Settings.Palette = "harbor"
 	}
 	return s, nil
 }

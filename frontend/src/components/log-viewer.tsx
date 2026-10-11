@@ -225,7 +225,7 @@ export function LogViewer({ serverId, name }: { serverId: string; name: string }
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-neutral-50 dark:bg-neutral-950">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border bg-terminal shadow-surface">
         <div ref={scrollRef} onScroll={onScroll} className="selectable h-full overflow-auto font-mono text-xs">
           <div style={{ height: virt.getTotalSize(), position: "relative", minWidth: "100%", width: "max-content" }}>
             {virt.getVirtualItems().map((v) => (

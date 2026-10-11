@@ -85,16 +85,20 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
         <Button variant="ghost" size="icon" className="no-drag -ml-2 size-8" onClick={() => go({ server: serverId })} title="返回服务器">
           <ChevronLeft />
         </Button>
-        <span className="text-muted-foreground truncate text-sm">{server?.name}</span>
-        <span className="text-muted-foreground">/</span>
-        <span className="truncate font-medium">{name}</span>
-        {d && <AppState status={d.status} current={d.current} className="ml-1 text-xs" />}
+        <button className="no-drag text-muted-foreground hover:text-foreground truncate text-sm transition-colors" onClick={() => go({ server: serverId })}>
+          {server?.name}
+        </button>
+        <span className="text-muted-foreground/50">/</span>
+        <span className="truncate font-semibold tracking-tight">{name}</span>
+        {d && <AppState status={d.status} current={d.current} className="bg-muted text-muted-foreground ml-1 rounded-full px-2 py-0.5 text-xs" />}
       </PageHeader>
 
       {link.offline ? (
-        <div className="p-5">
-          <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-sm">
-            <Unplug className="size-6" />
+        <div className="mx-auto w-full max-w-6xl p-6">
+          <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-xl border border-dashed py-14 text-sm">
+            <span className="bg-muted flex size-11 items-center justify-center rounded-full">
+              <Unplug className="size-5" />
+            </span>
             已断开与 {server?.name} 的连接，不会自动重连
             <Button size="sm" disabled={link.connecting} onClick={link.connect}>
               {link.connecting ? <Loader2 className="animate-spin" /> : <Plug />}
@@ -103,7 +107,7 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
           </div>
         </div>
       ) : info.isError && !d ? (
-        <div className="p-5">
+        <div className="mx-auto w-full max-w-6xl p-6">
           <Alert variant="destructive">
             <TriangleAlert />
             <AlertTitle>无法读取应用</AlertTitle>
@@ -111,14 +115,14 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
           </Alert>
         </div>
       ) : !d ? (
-        <div className="text-muted-foreground flex items-center gap-2 p-5 text-sm">
+        <div className="text-muted-foreground flex items-center gap-2 p-6 text-sm">
           <Loader2 className="size-4 animate-spin" />
           加载中…
         </div>
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
-          <div className="px-5 pt-4">
-            <TabsList>
+          <div className="bg-background border-b px-6">
+            <TabsList variant="line" className="h-10 gap-4 p-0">
               <TabsTrigger value="overview">概览</TabsTrigger>
               <TabsTrigger value="deploy">发版</TabsTrigger>
               <TabsTrigger value="logs">日志</TabsTrigger>
@@ -126,20 +130,26 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
               <TabsTrigger value="settings">设置</TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="overview" className="min-h-0 flex-1 overflow-y-auto p-5">
-            <OverviewTab serverId={serverId} info={d} host={server?.host ?? ""} onDeploy={() => setTab("deploy")} />
+          <TabsContent value="overview" className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-6xl p-6">
+              <OverviewTab serverId={serverId} info={d} host={server?.host ?? ""} onDeploy={() => setTab("deploy")} />
+            </div>
           </TabsContent>
-          <TabsContent value="deploy" className="min-h-0 flex-1 overflow-y-auto p-5">
-            <DeployPanel serverId={serverId} info={d} />
+          <TabsContent value="deploy" className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-6xl p-6">
+              <DeployPanel serverId={serverId} info={d} />
+            </div>
           </TabsContent>
-          <TabsContent value="logs" className="min-h-0 flex-1 p-5">
+          <TabsContent value="logs" className="min-h-0 flex-1 p-6">
             <LogViewer serverId={serverId} name={name} />
           </TabsContent>
-          <TabsContent value="files" className="min-h-0 flex-1 p-5">
+          <TabsContent value="files" className="min-h-0 flex-1 p-6">
             <FilesPanel serverId={serverId} info={d} />
           </TabsContent>
-          <TabsContent value="settings" className="min-h-0 flex-1 overflow-y-auto p-5">
-            <SettingsTab serverId={serverId} info={d} />
+          <TabsContent value="settings" className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-6xl p-6">
+              <SettingsTab serverId={serverId} info={d} />
+            </div>
           </TabsContent>
         </Tabs>
       )}
@@ -151,7 +161,7 @@ export function AppPage({ serverId, name }: { serverId: string; name: string }) 
 function Item({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <div className="text-muted-foreground mb-1 text-xs">{label}</div>
+      <div className="text-muted-foreground mb-1.5 text-xs">{label}</div>
       <div className="truncate text-sm">{children}</div>
     </div>
   );
@@ -206,7 +216,7 @@ function OverviewTab({ serverId, info, host, onDeploy }: { serverId: string; inf
         </Alert>
       )}
       <NoteCard serverId={serverId} name={a.name} note={a.note ?? ""} />
-      <div className="bg-card grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border p-4 md:grid-cols-4">
+      <div className="surface grid grid-cols-2 gap-x-6 gap-y-5 p-5 md:grid-cols-4">
         <Item label="状态">
           <AppState status={s} current={info.current} />
           {s.sub && s.sub !== "running" && s.sub !== "dead" && <span className="text-muted-foreground ml-1 text-xs">({s.sub})</span>}
@@ -227,7 +237,7 @@ function OverviewTab({ serverId, info, host, onDeploy }: { serverId: string; inf
         </Item>
       </div>
 
-      <div className="bg-card grid grid-cols-1 gap-y-3 rounded-lg border p-4 text-sm md:grid-cols-[8rem_1fr]">
+      <div className="surface grid grid-cols-1 items-center gap-y-3.5 p-5 text-sm md:grid-cols-[8rem_1fr]">
         <span className="text-muted-foreground">访问地址</span>
         <span>
           {a.port ? (
@@ -296,7 +306,7 @@ function SettingsTab({ serverId, info }: { serverId: string; info: Info }) {
           }
         }}
       />
-      <section className="border-destructive/40 rounded-lg border p-4">
+      <section className="border-destructive/30 bg-destructive/[0.03] rounded-xl border p-5">
         <h3 className="text-destructive text-sm font-medium">删除应用</h3>
         <p className="text-muted-foreground mt-1 text-sm">停止服务并删除 unit、所有版本、shared/ 中的数据和备份。无法恢复。</p>
         <Confirm

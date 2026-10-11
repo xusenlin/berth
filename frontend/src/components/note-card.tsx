@@ -40,7 +40,7 @@ export function NoteCard({ serverId, name, note }: { serverId: string; name: str
 
   if (editing) {
     return (
-      <div className="bg-card space-y-2 rounded-lg border p-4">
+      <div className="surface space-y-2 p-5">
         <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
           <NotebookPen className="size-3.5" />
           备注
@@ -87,7 +87,7 @@ export function NoteCard({ serverId, name, note }: { serverId: string; name: str
   if (!note) {
     return (
       <button
-        className="text-muted-foreground hover:text-foreground hover:bg-accent/50 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-4 py-3 text-sm"
+        className="text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:border-primary/40 flex w-full items-center gap-1.5 rounded-xl border border-dashed px-4 py-3 text-sm transition-colors"
         onClick={() => setEditing(true)}
       >
         <NotebookPen className="size-4" />
@@ -97,7 +97,7 @@ export function NoteCard({ serverId, name, note }: { serverId: string; name: str
   }
 
   return (
-    <div className="bg-card group relative rounded-lg border p-4">
+    <div className="surface group relative p-5">
       <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs">
         <NotebookPen className="size-3.5" />
         备注

@@ -12,7 +12,7 @@ func TestStoreRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(s.Servers()) != 0 || s.Settings().Theme != "system" {
+	if len(s.Servers()) != 0 || s.Settings().Theme != "system" || s.Settings().Palette != "harbor" {
 		t.Fatalf("unexpected empty config: %+v %+v", s.Servers(), s.Settings())
 	}
 	srv, err := s.SaveServer(Server{Host: " 1.2.3.4 ", User: "root", Auth: AuthPassword})
