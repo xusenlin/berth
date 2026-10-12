@@ -1,3 +1,5 @@
+import type { Build } from "@/mygo";
+
 export function bytes(n: number | undefined | null, digits = 1): string {
   if (n == null || n < 0) return "-";
   const units = ["B", "K", "M", "G", "T"];
@@ -50,4 +52,25 @@ export function cpuTime(ns: number): string {
   const s = ns / 1e9;
   if (s < 60) return `${s.toFixed(1)} 秒`;
   return duration(s);
+}
+
+/** buildLabel describes a Go build, as v1.0.1 (01b4f77); "" without one. */
+export function buildLabel(b: Build | undefined): string {
+  if (!b) return "";
+  const rev = b.revision?.slice(0, 7) ?? "";
+  const s = b.version && rev ? `${b.version} (${rev})` : b.version || rev;
+  return s + (b.modified ? "*" : "");
+}
+
+/** buildTitle is the details of a Go build, for a tooltip. */
+export function buildTitle(b: Build | undefined): string {
+  if (!b) return "";
+  return [
+    b.version && `版本 ${b.version}`,
+    b.revision && `提交 ${b.revision}`,
+    b.time && `提交时间 ${new Date(b.time).toLocaleString()}`,
+    b.modified && "* 构建时有未提交的改动",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

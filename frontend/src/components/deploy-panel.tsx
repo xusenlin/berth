@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { stripAnsi } from "@/lib/ansi";
 import { message } from "@/lib/errors";
-import { bytes, releaseDate } from "@/lib/format";
+import { buildLabel, buildTitle, bytes, releaseDate } from "@/lib/format";
 import { keys, useReleases } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Apps, type Event, type Info, type Preflight, type Result, type Step } from "@/mygo";
@@ -163,6 +163,11 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
                   {pkg.arch ? `架构 ${pkg.arch}` : "脚本"}
                   {pkg.arch && <span className="text-success"> ✓ 与服务器 {preflight!.serverArch} 一致</span>}
                 </span>
+                {pkg.build && (
+                  <span className="cursor-help" title={buildTitle(pkg.build)}>
+                    构建 {buildLabel(pkg.build)}
+                  </span>
+                )}
                 {pkg.stripped && <span>已去掉顶层目录 {pkg.stripped}/</span>}
                 <span>服务器剩余 {bytes(preflight!.diskFree)}</span>
               </div>
@@ -201,6 +206,7 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
             <TableHeader>
               <TableRow>
                 <TableHead>版本</TableHead>
+                <TableHead>构建</TableHead>
                 <TableHead>发布时间</TableHead>
                 <TableHead>来源文件</TableHead>
                 <TableHead className="text-right">大小</TableHead>
@@ -217,6 +223,9 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
                         当前
                       </Badge>
                     )}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs" title={buildTitle(r.build)}>
+                    {buildLabel(r.build) || <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   <TableCell>{releaseDate(r.id)}</TableCell>
                   <TableCell className="text-muted-foreground max-w-56 truncate" title={r.source}>
@@ -243,14 +252,14 @@ export function DeployPanel({ serverId, info }: { serverId: string; info: Info }
               ))}
               {releases.data?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground py-6 text-center">
+                  <TableCell colSpan={6} className="text-muted-foreground py-6 text-center">
                     还没有发布过版本
                   </TableCell>
                 </TableRow>
               )}
               {releases.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground py-6 text-center">
+                  <TableCell colSpan={6} className="text-muted-foreground py-6 text-center">
                     <Loader2 className="mx-auto size-4 animate-spin" />
                   </TableCell>
                 </TableRow>

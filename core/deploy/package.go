@@ -15,6 +15,8 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/xusenlin/berth/core/app"
 )
 
 // Kind is the kind of file a release comes from.
@@ -38,6 +40,8 @@ type Package struct {
 	Arch string `json:"arch"`
 	// Stripped is the top-level directory removed from the archive's paths.
 	Stripped string `json:"stripped,omitempty"`
+	// Build is the build info of the entry when it is a Go program.
+	Build *app.Build `json:"build,omitempty"`
 
 	entries []entry
 	entry   string
@@ -52,6 +56,7 @@ type entry struct {
 	isLink   bool
 	open     func() (io.ReadCloser, error)
 	headOnly []byte
+	data     []byte // the whole file, kept for the build info of a possible entry
 }
 
 // KindOf guesses the kind of a release file from its name.
@@ -120,6 +125,9 @@ func Inspect(file, entryName string) (*Package, error) {
 	pkg.Arch, err = programArch(head)
 	if err != nil {
 		return nil, fmt.Errorf("入口 %q：%w", entryName, err)
+	}
+	if pkg.Arch != "" {
+		pkg.Build = pkg.readBuild(ent)
 	}
 	return pkg, nil
 }
@@ -288,6 +296,17 @@ func (p *Package) readTarGz() error {
 			}
 			e.isLink, e.link, e.size = true, h.Linkname, 0
 		case tar.TypeReg, tar.TypeRegA:
+			if p.mayBeEntry(name) && h.Size <= maxBuildRead {
+				data, err := io.ReadAll(tr)
+				if err != nil {
+					return fmt.Errorf("读取 tar.gz：%w", err)
+				}
+				e.headOnly = data[:min(len(data), 64)]
+				if bytes.HasPrefix(data, []byte("\x7fELF")) {
+					e.data = data
+				}
+				break
+			}
 			buf := make([]byte, 64)
 			n, _ := io.ReadFull(tr, buf)
 			e.headOnly = buf[:n]
@@ -299,6 +318,12 @@ func (p *Package) readTarGz() error {
 		p.entries = append(p.entries, e)
 	}
 	return nil
+}
+
+// mayBeEntry reports whether name is the entry, before or after strip.
+func (p *Package) mayBeEntry(name string) bool {
+	_, rest, _ := strings.Cut(name, "/")
+	return name == p.entry || rest == p.entry
 }
 
 // strip removes a single top-level directory holding everything, as in

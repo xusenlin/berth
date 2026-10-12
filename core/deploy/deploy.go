@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -189,6 +190,9 @@ func (d *Deployer) Deploy(ctx context.Context, name, file string, report func(Ev
 	msg := fmt.Sprintf("%d 个文件，%s", pf.Package.Files, humanBytes(pf.Package.Size))
 	if pf.Package.Arch != "" {
 		msg += "，" + pf.Package.Arch
+	}
+	if b := BuildLabel(pf.Package.Build); b != "" {
+		msg += "，" + b
 	}
 	report(Event{Step: StepCheck, State: StateDone, Message: msg})
 	for _, w := range pf.Warnings {
@@ -462,6 +466,10 @@ func (d *Deployer) newReleaseID(ctx context.Context, p app.Paths) (string, error
 
 // upload streams the package as a tar.gz into tar on the server.
 func (d *Deployer) upload(ctx context.Context, pkg *Package, rel, entry string, progress func(float64)) error {
+	info, err := json.Marshal(app.ReleaseInfo{Source: filepath.Base(pkg.Path), Build: pkg.Build})
+	if err != nil {
+		return err
+	}
 	pr, pw := io.Pipe()
 	var last time.Time
 	go func() {
@@ -475,8 +483,9 @@ func (d *Deployer) upload(ctx context.Context, pkg *Package, rel, entry string, 
 	}()
 	q := ssh.Quote(rel)
 	cmd := "mkdir -p " + q + " && tar -xzf - --no-same-owner -C " + q + " && chmod +x " + ssh.Quote(rel+"/"+entry) + " && test -f " + ssh.Quote(rel+"/"+entry) +
-		// The file the release came from, which the list of releases shows.
-		" && printf %s " + ssh.Quote(filepath.Base(pkg.Path)) + " > " + ssh.Quote(rel+"/"+app.ReleaseInfoFile)
+		// The file and build the release came from, which the list of
+		// releases shows.
+		" && printf %s " + ssh.Quote(string(info)) + " > " + ssh.Quote(rel+"/"+app.ReleaseInfoFile)
 	res, err := d.M.C.Run(ctx, cmd, pr)
 	pr.CloseWithError(errors.New("upload ended"))
 	if err != nil {

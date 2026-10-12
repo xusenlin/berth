@@ -50,6 +50,24 @@ export interface AppStatus {
 /** AuthType is how Berth logs in to a server. */
 export type AuthType = "password" | "key" | "agent";
 
+/**
+ * Build is what a Go program records about its build: see
+ * debug/buildinfo.
+ */
+export interface Build {
+  /**
+   * Version is the version of the main module, as v1.0.1, when it was
+   * built from a tagged commit; "" otherwise.
+   */
+  version?: string;
+  /** Revision is the commit it was built from. */
+  revision?: string;
+  /** Time is the time of that commit, RFC 3339. */
+  time?: string;
+  /** Modified is set when the working tree had uncommitted changes. */
+  modified?: boolean;
+}
+
 /** Info is what reading an archive found. */
 export interface Contents {
   manifest: Manifest;
@@ -254,6 +272,8 @@ export interface Package {
   arch: string;
   /** Stripped is the top-level directory removed from the archive's paths. */
   stripped?: string;
+  /** Build is the build info of the entry when it is a Go program. */
+  build?: Build;
 }
 
 /** Ports is what listens on a server, and which ports its apps reserve. */
@@ -337,6 +357,11 @@ export interface Release {
    * not record it for.
    */
   source: string;
+  /**
+   * Build is the build of a Go entry, nil for other programs and for
+   * releases Berth did not record it for.
+   */
+  build?: Build;
 }
 
 /** ReservedPort is the port of an app. */

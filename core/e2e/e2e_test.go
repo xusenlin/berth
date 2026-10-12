@@ -280,6 +280,12 @@ func run(t *testing.T, user string, mode server.Mode) {
 	if rels[0].Source != "testapp" || rels[1].Source != "release.zip" {
 		t.Errorf("release sources = %+v", rels)
 	}
+	// testapp is built inside Berth's repository, so it records a commit.
+	for _, r := range rels {
+		if r.Build == nil || len(r.Build.Revision) != 40 {
+			t.Errorf("build of %s = %+v", r.ID, r.Build)
+		}
+	}
 
 	// Editing shared files: create, read, update, refuse stale writes and
 	// escapes through symlinks.

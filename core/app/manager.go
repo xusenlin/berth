@@ -455,15 +455,46 @@ func (m *Manager) SetAutostart(ctx context.Context, name string, on bool) error 
 	return err
 }
 
-// ReleaseInfoFile, in a release directory, holds the name of the file the
-// release was uploaded from.
+// ReleaseInfoFile, in a release directory, holds the ReleaseInfo of the
+// release as JSON. Releases of older versions of Berth hold only the name
+// of the uploaded file.
 const ReleaseInfoFile = ".berth-release"
+
+// ReleaseInfo is what Berth records about a release when it uploads it.
+type ReleaseInfo struct {
+	// Source is the name of the uploaded file.
+	Source string `json:"source"`
+	Build  *Build `json:"build,omitempty"`
+}
+
+// Build is what a Go program records about its build: see
+// debug/buildinfo.
+type Build struct {
+	// Version is the version of the main module, as v1.0.1, when it was
+	// built from a tagged commit; "" otherwise.
+	Version string `json:"version,omitempty"`
+	// Revision is the commit it was built from.
+	Revision string `json:"revision,omitempty"`
+	// Time is the time of that commit, RFC 3339.
+	Time string `json:"time,omitempty"`
+	// Modified is set when the working tree had uncommitted changes.
+	Modified bool `json:"modified,omitempty"`
+}
+
+// parseReleaseInfo reads a ReleaseInfoFile, either format.
+func parseReleaseInfo(s string) ReleaseInfo {
+	var info ReleaseInfo
+	if strings.HasPrefix(s, "{") && json.Unmarshal([]byte(s), &info) == nil {
+		return info
+	}
+	return ReleaseInfo{Source: s}
+}
 
 // Releases returns the release directories of an app, newest first.
 func (m *Manager) Releases(ctx context.Context, name string) ([]Release, string, error) {
 	p := PathsOf(m.Env, name)
 	out, err := m.C.Output(ctx, "cd "+ssh.Quote(p.Releases)+" 2>/dev/null || exit 0; for d in */; do d=${d%/}; [ -d \"$d\" ] || continue; "+
-		"printf '%s\\t%s\\t%s\\n' \"$d\" \"$(du -sk \"$d\" | cut -f1)\" \"$(head -c 255 \"$d/"+ReleaseInfoFile+"\" 2>/dev/null | tr -d '\\n\\t')\"; done; "+
+		"printf '%s\\t%s\\t%s\\n' \"$d\" \"$(du -sk \"$d\" | cut -f1)\" \"$(head -c 1024 \"$d/"+ReleaseInfoFile+"\" 2>/dev/null | tr -d '\\n\\t')\"; done; "+
 		"echo @@current; readlink ../current 2>/dev/null")
 	if err != nil {
 		return nil, "", err
@@ -482,7 +513,8 @@ func parseReleases(list, current string) []Release {
 		kb, _ := strconv.ParseInt(f[1], 10, 64)
 		r := Release{ID: f[0], Size: kb * 1024, Current: f[0] == current}
 		if len(f) == 3 {
-			r.Source = f[2]
+			info := parseReleaseInfo(f[2])
+			r.Source, r.Build = info.Source, info.Build
 		}
 		rels = append(rels, r)
 	}
@@ -498,4 +530,7 @@ type Release struct {
 	// Source is the name of the uploaded file, "" for releases Berth did
 	// not record it for.
 	Source string `json:"source"`
+	// Build is the build of a Go entry, nil for other programs and for
+	// releases Berth did not record it for.
+	Build *Build `json:"build,omitempty"`
 }

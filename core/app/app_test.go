@@ -146,6 +146,18 @@ func TestParseReleases(t *testing.T) {
 	}
 }
 
+func TestParseReleaseInfo(t *testing.T) {
+	list := `20261011-100000	100	{"source":"hg.tar.gz","build":{"version":"v1.0.1","revision":"01b4f77","modified":true}}` + "\n" +
+		"20261011-090000\t100\t{not json\n"
+	rels := parseReleases(list, "")
+	if b := rels[0].Build; rels[0].Source != "hg.tar.gz" || b == nil || b.Version != "v1.0.1" || b.Revision != "01b4f77" || !b.Modified {
+		t.Errorf("json = %+v %+v", rels[0], b)
+	}
+	if rels[1].Source != "{not json" || rels[1].Build != nil {
+		t.Errorf("not json = %+v", rels[1])
+	}
+}
+
 func TestNormalizeNote(t *testing.T) {
 	if n, err := NormalizeNote("  生产环境\r\n勿动 \n"); err != nil || n != "生产环境\n勿动" {
 		t.Errorf("note = %q %v", n, err)
