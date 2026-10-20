@@ -75,7 +75,7 @@ type Preflight struct {
 }
 
 // keepBackups is how many backups of shared/ each app keeps.
-const keepBackups = 3
+const keepBackups = 20
 
 var (
 	locks  sync.Map // server/app → *sync.Mutex

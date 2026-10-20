@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Palette, Plus, Server as ServerIcon } from "lucide-react";
+import { Bot, Palette, Plus, Server as ServerIcon } from "lucide-react";
 import { AppearanceDialog } from "@/components/appearance-dialog";
 import { Logo } from "@/components/logo";
+import { MCPDialog } from "@/components/mcp-dialog";
 import { ServerDialog } from "@/components/server-dialog";
 import { ServerDot } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function AppSidebar() {
   const servers = useServers();
   const [adding, setAdding] = useState(false);
   const [appearance, setAppearance] = useState(false);
+  const [agents, setAgents] = useState(false);
 
   return (
     <Sidebar>
@@ -106,18 +108,30 @@ export function AppSidebar() {
           <Plus />
           添加服务器
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground hover:text-foreground size-8"
-          title="外观"
-          onClick={() => setAppearance(true)}
-        >
-          <Palette />
-        </Button>
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground size-8"
+            title="Agent 接入（MCP）"
+            onClick={() => setAgents(true)}
+          >
+            <Bot />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground size-8"
+            title="外观"
+            onClick={() => setAppearance(true)}
+          >
+            <Palette />
+          </Button>
+        </div>
       </SidebarFooter>
       <ServerDialog open={adding} onOpenChange={setAdding} />
       <AppearanceDialog open={appearance} onOpenChange={setAppearance} />
+      <MCPDialog open={agents} onOpenChange={setAgents} />
     </Sidebar>
   );
 }

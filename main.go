@@ -33,7 +33,9 @@ func main() {
 	}
 	services.ApplyTheme(store.Settings().Theme)
 	b := services.NewBackend(store, secrets)
-	mygo.Bind(&services.Servers{B: b}, &services.Apps{B: b}, &services.Settings{B: b})
+	agents := services.NewMCPServer(b)
+	mygo.Bind(&services.Servers{B: b}, &services.Apps{B: b}, &services.Settings{B: b}, &services.MCP{S: agents})
+	agents.Start()
 
 	app.WhenReady(func() {
 		app.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
@@ -49,7 +51,10 @@ func main() {
 			openWindow()
 		}
 	})
-	app.OnQuit(func() { b.Pool.CloseAll() })
+	app.OnQuit(func() {
+		agents.Close()
+		b.Pool.CloseAll()
+	})
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}

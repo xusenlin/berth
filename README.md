@@ -35,6 +35,8 @@ task            # 列出全部任务：test、e2e、check、icon、build:mac 等
 | `testdata/e2e/` | 端到端测试用的 Linux 服务器镜像和测试程序 |
 | `design/` | 应用图标源文件与渲染脚本 |
 
+Agent 接入：侧栏底部的机器人图标里启用 MCP 服务，复制 `claude mcp add …` 命令即可。服务跑在应用进程内，只监听 `127.0.0.1:7789/mcp`（端口可在 config.json 的 `mcp.port` 修改），Berth 打开时可用。工具定义在 `services/mcp_tools.go`。同一处可打开「允许执行只读命令」，agent 便能用 `run_command` 在服务器上跑 cat、grep、tail、journalctl、sqlite3（自动加 `-readonly -safe`）等命令排查问题：命令按 POSIX sh 解析，只放行白名单里不能改动服务器的程序和参数（`core/readonly`），在服务器上以登录用户身份、nice 和超时运行，输出截断在 64 KiB。
+
 环境变量 `BERTH_CONFIG` 可指定 config.json 的位置（默认在系统用户配置目录的 `Berth/` 下）。
 
 ## 测试

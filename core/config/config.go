@@ -86,10 +86,25 @@ type Settings struct {
 	Palette string `json:"palette"` // harbor, dusk or ember
 }
 
+// MCP is the MCP server Berth runs for agents, on 127.0.0.1.
+type MCP struct {
+	Enabled bool `json:"enabled"`
+	Port    int  `json:"port"`
+	// Token is the bearer token clients send.
+	Token string `json:"token"`
+	// Commands lets agents run read-only shell commands on servers.
+	Commands bool `json:"commands,omitempty"`
+}
+
+// DefaultMCPPort is where the MCP server listens unless config.json says
+// otherwise.
+const DefaultMCPPort = 7789
+
 // Config is the content of config.json.
 type Config struct {
 	Servers  []Server `json:"servers"`
 	Settings Settings `json:"settings"`
+	MCP      MCP      `json:"mcp"`
 }
 
 // DefaultPath returns where config.json lives: the user's configuration
@@ -112,7 +127,7 @@ type Store struct {
 // Open loads the configuration at path. A missing file is an empty
 // configuration.
 func Open(path string) (*Store, error) {
-	s := &Store{path: path, cfg: Config{Settings: Settings{Theme: "system", Palette: "harbor"}}}
+	s := &Store{path: path, cfg: Config{Settings: Settings{Theme: "system", Palette: "harbor"}, MCP: MCP{Port: DefaultMCPPort}}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -128,6 +143,9 @@ func Open(path string) (*Store, error) {
 	}
 	if s.cfg.Settings.Palette == "" {
 		s.cfg.Settings.Palette = "harbor"
+	}
+	if s.cfg.MCP.Port == 0 {
+		s.cfg.MCP.Port = DefaultMCPPort
 	}
 	return s, nil
 }
@@ -196,6 +214,21 @@ func (s *Store) SetSettings(st Settings) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cfg.Settings = st
+	return s.write()
+}
+
+// MCP returns the settings of the MCP server.
+func (s *Store) MCP() MCP {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cfg.MCP
+}
+
+// SetMCP replaces the settings of the MCP server.
+func (s *Store) SetMCP(m MCP) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cfg.MCP = m
 	return s.write()
 }
 

@@ -255,7 +255,7 @@ export function AppForm({
         <label className="col-span-3 flex items-center justify-between gap-3 rounded-lg border p-3">
           <div>
             <div className="text-sm font-medium">发版前备份 shared/</div>
-            <div className="text-muted-foreground text-xs">失败回滚时恢复，保留最近 3 份</div>
+            <div className="text-muted-foreground text-xs">失败回滚时恢复，保留最近 20 份</div>
           </div>
           <Switch checked={a.backup} onCheckedChange={(v) => set("backup", v)} />
         </label>

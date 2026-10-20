@@ -198,6 +198,18 @@ export interface Listener {
   local: boolean;
 }
 
+/** MCPStatus is the state of the MCP server. */
+export interface MCPStatus {
+  enabled: boolean;
+  running: boolean;
+  url: string;
+  token: string;
+  /** Commands is whether agents may run read-only commands on servers. */
+  commands: boolean;
+  /** Error is why the server is enabled but not running. */
+  error?: string;
+}
+
 /** Manifest describes an archive. */
 export interface Manifest {
   format: number;
@@ -750,6 +762,32 @@ export const Settings = {
   /** Set replaces the preferences. */
   set(st: Settings): Promise<void> {
     return call("Settings.Set", st);
+  },
+} as const;
+
+/** MCP is the MCP server's settings for the page. */
+export const MCP = {
+  /** ResetToken replaces the token: clients holding the old one are refused. */
+  resetToken(): Promise<MCPStatus> {
+    return call("MCP.ResetToken");
+  },
+  /**
+   * SetCommands lets agents run read-only commands on servers, or stops
+   * them. Connected clients see the tool appear or go.
+   */
+  setCommands(on: boolean): Promise<MCPStatus> {
+    return call("MCP.SetCommands", on);
+  },
+  /**
+   * SetEnabled turns the MCP server on or off. The first start makes a
+   * token.
+   */
+  setEnabled(on: boolean): Promise<MCPStatus> {
+    return call("MCP.SetEnabled", on);
+  },
+  /** Status returns the state of the MCP server. */
+  status(): Promise<MCPStatus> {
+    return call("MCP.Status");
   },
 } as const;
 

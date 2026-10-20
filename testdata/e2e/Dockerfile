@@ -3,7 +3,7 @@
 FROM debian:bookworm
 ENV container=docker
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      systemd systemd-sysv dbus dbus-user-session openssh-server sudo curl ca-certificates libpam-systemd \
+      systemd systemd-sysv dbus dbus-user-session openssh-server sudo curl ca-certificates libpam-systemd sqlite3 \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/systemd/system/getty.target.wants/* \
     && systemctl enable ssh \
