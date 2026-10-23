@@ -29,7 +29,11 @@
 /* 港湾: the icon's teal over cool slate. */
 :root,
 [data-palette="harbor"] {
-  --brand: oklch(0.57 0.1 189); /* the icon's #0f8c88, design/icon.svg */
+  --brand: oklch(0.57 0.1 189);
+  /* The logo's gradient and lower rack; design/icon.svg uses these. */
+  --logo-from: oklch(0.68 0.12 225);
+  --logo-to: oklch(0.58 0.11 182);
+  --logo-tint: oklch(0.93 0.04 195);
   --background: oklch(0.99 0.003 210);
   --foreground: oklch(0.21 0.02 230);
   --card: oklch(1 0 0);
@@ -92,6 +96,9 @@
 /* 暮色: indigo and violet over blue-gray. */
 [data-palette="dusk"] {
   --brand: oklch(0.54 0.2 280);
+  --logo-from: oklch(0.64 0.19 305);
+  --logo-to: oklch(0.5 0.2 268);
+  --logo-tint: oklch(0.93 0.04 290);
   --background: oklch(0.99 0.003 285);
   --foreground: oklch(0.22 0.03 280);
   --card: oklch(1 0 0);
@@ -153,6 +160,9 @@
 /* 余晖: amber and coral over warm stone. */
 [data-palette="ember"] {
   --brand: oklch(0.64 0.17 45);
+  --logo-from: oklch(0.8 0.15 78);
+  --logo-to: oklch(0.62 0.19 35);
+  --logo-tint: oklch(0.95 0.04 75);
   --background: oklch(0.99 0.004 75);
   --foreground: oklch(0.23 0.015 55);
   --card: oklch(1 0.002 75);

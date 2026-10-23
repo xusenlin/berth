@@ -1,3 +1,5 @@
+<img src="design/icon.png" width="96" alt="Berth">
+
 # Berth
 
 本地桌面软件：通过 SSH 把任意 Linux 二进制部署到服务器，用服务器自带的 systemd 运行。服务器上不安装任何常驻程序。设计见 [berth-plan.md](berth-plan.md)。
