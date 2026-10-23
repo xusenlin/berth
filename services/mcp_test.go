@@ -140,6 +140,9 @@ func TestMCP(t *testing.T) {
 	if err := (&Servers{B: b}).Disconnect(srv.ID); err != nil {
 		t.Fatal(err)
 	}
+	if reopened, err := config.Open(store.Path()); err != nil || !NewBackend(reopened, config.MemorySecrets{}).isOffline(srv.ID) {
+		t.Errorf("disconnect not kept across a restart: %v", err)
+	}
 	res, err = cs.CallTool(ctx, &mcp.CallToolParams{Name: "list_apps", Arguments: map[string]any{"server": "prod"}})
 	if err != nil || !res.IsError || !strings.Contains(toolText(res), "disconnected") {
 		t.Errorf("offline server: %v %+v", err, res)

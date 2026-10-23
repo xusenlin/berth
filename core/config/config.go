@@ -105,6 +105,9 @@ type Config struct {
 	Servers  []Server `json:"servers"`
 	Settings Settings `json:"settings"`
 	MCP      MCP      `json:"mcp"`
+	// Offline are the IDs of the servers the user disconnected, which stay
+	// disconnected across restarts until the user connects them.
+	Offline []string `json:"offline,omitempty"`
 }
 
 // DefaultPath returns where config.json lives: the user's configuration
@@ -199,6 +202,30 @@ func (s *Store) DeleteServer(id string) error {
 		return nil
 	}
 	s.cfg.Servers = slices.Delete(s.cfg.Servers, i, i+1)
+	s.cfg.Offline = slices.DeleteFunc(s.cfg.Offline, func(v string) bool { return v == id })
+	return s.write()
+}
+
+// Offline tells whether the user disconnected the server with id.
+func (s *Store) Offline(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Contains(s.cfg.Offline, id)
+}
+
+// SetOffline records that the user disconnected the server with id, or
+// connected it again.
+func (s *Store) SetOffline(id string, off bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if slices.Contains(s.cfg.Offline, id) == off {
+		return nil
+	}
+	if off {
+		s.cfg.Offline = append(s.cfg.Offline, id)
+	} else {
+		s.cfg.Offline = slices.DeleteFunc(s.cfg.Offline, func(v string) bool { return v == id })
+	}
 	return s.write()
 }
 

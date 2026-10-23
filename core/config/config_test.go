@@ -42,10 +42,23 @@ func TestStoreRoundTrip(t *testing.T) {
 	if !ok || got.Name != "阿里云-1" || len(s2.Servers()) != 1 {
 		t.Fatalf("reload: %+v", s2.Servers())
 	}
+
+	if err := s2.SetOffline(srv.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if s3, err := Open(path); err != nil || !s3.Offline(srv.ID) {
+		t.Fatalf("offline lost on reload: %v", err)
+	}
+	if err := s2.SetOffline(srv.ID, false); err != nil || s2.Offline(srv.ID) {
+		t.Fatalf("still offline: %v", err)
+	}
+	if err := s2.SetOffline(srv.ID, true); err != nil {
+		t.Fatal(err)
+	}
 	if err := s2.DeleteServer(srv.ID); err != nil {
 		t.Fatal(err)
 	}
-	if len(s2.Servers()) != 0 {
+	if len(s2.Servers()) != 0 || s2.Offline(srv.ID) {
 		t.Fatal("server not deleted")
 	}
 }

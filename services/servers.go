@@ -125,7 +125,10 @@ func (s *Servers) Save(in ServerInput) (ServerView, error) {
 	}
 	s.B.Pool.Close(srv.ID)
 	s.B.forgetEnv(srv.ID)
-	s.B.setOffline(srv.ID, false) // new settings: connect with them
+	// New settings: connect with them.
+	if err := s.B.setOffline(srv.ID, false); err != nil {
+		return ServerView{}, err
+	}
 	return s.view(srv), nil
 }
 
@@ -135,9 +138,8 @@ func (s *Servers) Delete(id string) error {
 		return errors.New("这台服务器上正在发版或回滚，完成后再删除")
 	}
 	s.B.Pool.Close(id)
-	s.B.setOffline(id, false)
 	s.B.forgetEnv(id)
-	if err := s.B.Store.DeleteServer(id); err != nil {
+	if err := s.B.Store.DeleteServer(id); err != nil { // forgets it was offline too
 		return err
 	}
 	return s.B.Secrets.Delete(id)
@@ -162,17 +164,21 @@ func (s *Servers) Connect(ctx context.Context, id string) (ServerView, error) {
 
 // Reconnect connects to a server the user disconnected.
 func (s *Servers) Reconnect(ctx context.Context, id string) (ServerView, error) {
-	s.B.setOffline(id, false)
+	if err := s.B.setOffline(id, false); err != nil {
+		return ServerView{}, err
+	}
 	return s.Connect(ctx, id)
 }
 
 // Disconnect closes the connection to a server and keeps it closed until
-// Reconnect.
+// Reconnect, also after a restart.
 func (s *Servers) Disconnect(id string) error {
 	if deploy.Busy(id) {
 		return errors.New("这台服务器上正在发版或回滚，完成后再断开")
 	}
-	s.B.setOffline(id, true)
+	if err := s.B.setOffline(id, true); err != nil {
+		return err
+	}
 	s.B.Pool.Close(id)
 	s.B.forgetEnv(id)
 	return nil
