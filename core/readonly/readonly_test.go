@@ -36,7 +36,7 @@ func TestAllowed(t *testing.T) {
 		`date +%s`,
 		`date -d yesterday +%F`,
 		`stat -c '%s %y' ./data.db`,
-		`jq '.port' ~/senlinApps/web/app.json`,
+		`jq '.port' ~/senlinApps/web/shared/config.json`,
 		`tail -n 5 /var/log/*.log`,
 		`dmesg -T | tail`,
 		`sort -t, -k2 ./data.csv`,
@@ -46,6 +46,24 @@ func TestAllowed(t *testing.T) {
 		`sqlite3 -json ~/senlinApps/pb/shared/pb_data/data.db 'select id, email from users limit 5'`,
 		`sqlite3 ./data.db .tables`,
 		`sqlite3 -header -separator , ./data.db "select * from t where name = 'x'"`,
+		`p=$(pgrep -f web); cat /proc/$p/status`,
+		`dir=/var/log n=5; tail -n "$n" -- "$dir/syslog"`,
+		`for p in $(pgrep -f web); do cat /proc/$p/status; done`,
+		`pgrep -f web | xargs -I{} cat /proc/{}/status`,
+		`systemctl show-environment`,
+		`systemctl --user cat berth-web`,
+		`crontab -l`,
+		`ps -ef`,
+		`ps -eo pid,etime,args`,
+		`ps axo pid,etime,comm`,
+		`ps -p 1 -o pid,user,etime`,
+		`ps --sort=-%mem -e`,
+		`p=1; ps -o etime= -p "$p"`,
+		`curl -s http://127.0.0.1:8080/health`,
+		`curl -fsS -m 5 -o /dev/null -w '%{http_code}' http://localhost:8090/api/health`,
+		`curl -sI 'http://[::1]:8080/'`,
+		`curl -sm5 -H 'Host: example.com' https://127.0.0.1/`,
+		`curl --max-time=3 --include http://127.0.0.2/x`,
 	} {
 		if _, err := Check(cmd); err != nil {
 			t.Errorf("%s: %v", cmd, err)
@@ -56,6 +74,13 @@ func TestAllowed(t *testing.T) {
 func TestSQLiteReadOnly(t *testing.T) {
 	out, err := Check(`sqlite3 ./x.db 'select 1' | head`)
 	if err != nil || out != "sqlite3 -readonly -safe ./x.db 'select 1' | head\n" {
+		t.Errorf("got %q %v", out, err)
+	}
+}
+
+func TestCurlOptions(t *testing.T) {
+	out, err := Check(`curl -s http://127.0.0.1/`)
+	if err != nil || out != "curl -q --globoff --noproxy '*' --proto =http,https -s http://127.0.0.1/\n" {
 		t.Errorf("got %q %v", out, err)
 	}
 }
@@ -91,6 +116,7 @@ func TestRefused(t *testing.T) {
 		`find . $X`,
 		`find . -${X:-delete}`,
 		`find . {-delete,}`,
+		`find . {}{-delete,}`,
 		`find . $'-delete'`,
 		`sort -o /etc/passwd x`,
 		`sort -ro out x`,
@@ -175,6 +201,48 @@ func TestRefused(t *testing.T) {
 		`sqlite3 -unsafe-testing ./x.db`,
 		`sqlite3 ./x.db -A -x`,
 		`sqlite3 ./x.db "$Q"`,
+		`q='.shell id'; sqlite3 ./x.db "$q"`,
+		`PATH=/tmp; cat x`,
+		`IFS=/ ; cat x`,
+		`x=1 cat y`,
+		`for PATH in /tmp; do cat x; done`,
+		`x=-delete; find . $x`,
+		`cat /proc/1/environ`,
+		`strings /proc/*/environ`,
+		`cat "/proc/$p/environ"`,
+		`cd /proc/1 && cat environ`,
+		`cat /proc/1/env""iron`,
+		`cat < /proc/self/environ`,
+		`cat ~/senlinApps/web/shared/.env`,
+		`grep PASS $HOME/senlinApps/web/shared/.env`,
+		`jq . ~/senlinApps/web/app.json`,
+		`ps e`,
+		`ps auxe`,
+		`ps -ef e`,
+		`ps $x`,
+		`xargs ps`,
+		`crontab -r`,
+		`crontab -e`,
+		`crontab ./jobs`,
+		`crontab -l -u root`,
+		`curl https://example.com/`,
+		`curl http://127.0.0.1@example.com/`,
+		`curl 127.0.0.1:8080/`,
+		`curl file:///etc/passwd`,
+		`curl -X POST http://127.0.0.1/`,
+		`curl -d x=1 http://127.0.0.1/`,
+		`curl -o ./out http://127.0.0.1/`,
+		`curl -so out http://127.0.0.1/`,
+		`curl --output=out http://127.0.0.1/`,
+		`curl -O http://127.0.0.1/x`,
+		`curl -L http://127.0.0.1/`,
+		`curl -K ./cfg http://127.0.0.1/`,
+		`curl -x http://evil:1 http://127.0.0.1/`,
+		`curl --resolve localhost:80:1.2.3.4 http://localhost/`,
+		`curl -w '%output{/tmp/x}' http://127.0.0.1/`,
+		`curl -T ./f http://127.0.0.1/`,
+		`curl "$u"`,
+		`curl -s`,
 	} {
 		if out, err := Check(cmd); err == nil {
 			t.Errorf("%s: accepted as %q", cmd, out)

@@ -5,6 +5,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -129,14 +130,22 @@ func TestMCPEndToEnd(t *testing.T) {
 	}
 	call("rollback", map[string]any{"server": "e2e", "app": name, "release": first}, true)
 
-	call("update_app", map[string]any{"server": "e2e", "app": name, "setEnv": map[string]string{"GREETING": "bonjour"}}, true)
+	if text := call("update_app", map[string]any{"server": "e2e", "app": name, "setEnv": map[string]string{"GREETING": "bonjour"}}, true); strings.Contains(text, "bonjour") {
+		t.Errorf("update_app shows an env value: %s", text)
+	}
 	call("app_action", map[string]any{"server": "e2e", "app": name, "action": "restart"}, true)
 	time.Sleep(time.Second)
 	if text := call("query_logs", map[string]any{"server": "e2e", "app": name, "keyword": "bonjour"}, true); !strings.Contains(text, "testapp v1") {
 		t.Errorf("logs after update:\n%s", text)
 	}
 	text = call("get_app", map[string]any{"server": "e2e", "app": name}, true)
-	if !strings.Contains(text, `"current":"`+first+`"`) || !strings.Contains(text, `"GREETING":"bonjour"`) || !strings.Contains(text, `"backup":true`) {
+	var got struct {
+		App struct{ Port int } `json:"app"`
+	}
+	if err := json.Unmarshal([]byte(text), &got); err != nil || got.App.Port == 0 {
+		t.Fatalf("get_app port: %v %s", err, text)
+	}
+	if !strings.Contains(text, `"current":"`+first+`"`) || !strings.Contains(text, `"GREETING":"(hidden, 7 chars)"`) || !strings.Contains(text, `"backup":true`) {
 		t.Errorf("get_app: %s", text)
 	}
 
@@ -148,6 +157,7 @@ func TestMCPEndToEnd(t *testing.T) {
 	if err := json.Unmarshal([]byte(text), &fc); err != nil || !strings.Contains(fc.Content, "v1") {
 		t.Fatalf("read_shared_file: %v %s", err, text)
 	}
+	call("read_shared_file", map[string]any{"server": "e2e", "app": name, "path": "./x/../.env"}, false)
 	call("write_shared_file", map[string]any{"server": "e2e", "app": name, "path": "starts.log", "content": "x"}, false) // no modTime
 	call("write_shared_file", map[string]any{"server": "e2e", "app": name, "path": "starts.log", "content": "x", "modTime": fc.ModTime}, true)
 
@@ -177,6 +187,12 @@ func TestMCPEndToEnd(t *testing.T) {
 	run(map[string]any{"command": "sqlite3 ./new.db 'create table t(x)'; ls -a", "dir": name + "/shared"}, true, "starts.log")
 	run(map[string]any{"command": "ls new.db", "dir": name + "/shared"}, true, "No such file")
 	run(map[string]any{"command": "sqlite3 :memory: '.shell echo pwned'"}, true, "safe mode")
+	health := fmt.Sprintf("http://127.0.0.1:%d/health", got.App.Port)
+	run(map[string]any{"command": "curl -s -o /dev/null -w '%{http_code}' " + health}, true, "200")
+	run(map[string]any{"command": "p=$(pgrep -o -f 'testapp -http'); grep '^Pid:' /proc/$p/status"}, true, "Pid:")
+	run(map[string]any{"command": "cat /proc/1/environ"}, false, "environ")
+	run(map[string]any{"command": "cat .env", "dir": name + "/shared"}, false, ".env")
+	run(map[string]any{"command": "curl -s https://example.com/"}, false, "server itself")
 	run(map[string]any{"command": "rm -rf " + name}, false, "refused")
 	run(map[string]any{"command": "echo x > " + name + "/app.json"}, false, "refused")
 	run(map[string]any{"command": "ls", "dir": "/nowhere"}, false, "cannot enter")

@@ -37,8 +37,12 @@ func (s *MCPServer) syncCommands() {
 		Description: "Run a read-only shell command on a server to investigate: read logs and files anywhere, list directories, " +
 			"look at processes, ports, disks and systemd units. Pipes, &&, ;, if, for and $(…) work, but only programs that " +
 			"cannot change the server: cat, grep, tail, head, sed (no -i, w or e), find (no -delete or -exec), " +
-			"sort, uniq, wc, jq, sqlite3 (opened -readonly -safe, e.g. on an app's shared/data.db), journalctl, systemctl status/show/list-*, ss, ps, du, df, ip … show, xargs with one of these, and the like. " +
-			"Redirections may only read files or go to /dev/null or 2>&1; no variable assignments. The command runs with sh as the login " +
+			"sort, uniq, wc, jq, sqlite3 (opened -readonly -safe, e.g. on an app's shared/data.db), journalctl, " +
+			"systemctl status/show/cat/list-* (add --user on servers whose apps are user services), crontab -l, ss, ps, du, df, " +
+			"ip … show, curl for GET requests to the server itself (http://127.0.0.1:PORT/…, e.g. a health check), xargs with one " +
+			"of these, and the like. Redirections may only read files or go to /dev/null or 2>&1. Variables may be set on their " +
+			"own with lowercase names (p=$(pgrep -f web); cat /proc/$p/status), not before a command. Files holding passwords are " +
+			"refused: /proc/*/environ, an app's shared/.env and app.json (get_app shows the settings). The command runs with sh as the login " +
 			"user, under nice and a timeout; stderr is merged into the output, which is cut at 64 KiB. A refused command says why.",
 	}, s.runCommand)
 }

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -23,7 +25,8 @@ const mcpInstructions = `Berth deploys Linux programs to servers over SSH and ru
 - An app is a program on one server: app.json (entry, args, port, env, health check…), releases/ (one directory per deploy) and shared/ (data kept across releases, e.g. a database).
 - To ship code: build it for the server's arch (list_servers shows it, e.g. x86_64 → GOOS=linux GOARCH=amd64), then deploy the local file (an executable, .zip or .tar.gz). check_deploy validates it first. A release that fails its health check is rolled back automatically; the result carries the journal lines.
 - Apps with backup on get shared/ archived on the server before each deploy (the latest 20 are kept) and restored when the deploy rolls back.
-- New settings (update_app) reach a running app when it restarts.`
+- New settings (update_app) reach a running app when it restarts.
+- Environment variable values are hidden from you, as they often hold passwords: get_app shows names and lengths. Set them with update_app setEnv.`
 
 // Handlers return objects, never bare arrays: MCP requires
 // structuredContent to be a JSON object, and clients such as Claude Code
@@ -213,7 +216,20 @@ func (s *MCPServer) getApp(ctx context.Context, _ *mcp.CallToolRequest, in appAr
 		return nil, nil, err
 	}
 	info, err := s.apps().Get(ctx, srv.ID, in.App)
+	info.App = masked(info.App)
 	return nil, info, err
+}
+
+// masked hides the values of an app's environment variables, which often
+// hold passwords, so that they stay out of the agent's context: it sees the
+// names and lengths, and sets values with update_app.
+func masked(a app.App) app.App {
+	env := make(map[string]string, len(a.Env))
+	for k, v := range a.Env {
+		env[k] = fmt.Sprintf("(hidden, %d chars)", utf8.RuneCountInString(v))
+	}
+	a.Env = env
+	return a
 }
 
 func (s *MCPServer) listReleases(ctx context.Context, _ *mcp.CallToolRequest, in appArg) (*mcp.CallToolResult, any, error) {
@@ -309,6 +325,10 @@ func (s *MCPServer) readShared(ctx context.Context, _ *mcp.CallToolRequest, in s
 	srv, err := s.server(in.Server)
 	if err != nil {
 		return nil, nil, err
+	}
+	// shared/.env holds the environment variables, which get_app hides.
+	if path.Clean("/"+in.Path) == "/.env" {
+		return nil, nil, errors.New(".env holds the app's environment variables, whose values are hidden: get_app lists their names")
 	}
 	fc, err := s.apps().ReadShared(ctx, srv.ID, in.App, in.Path)
 	return nil, fc, err
@@ -420,7 +440,7 @@ func (s *MCPServer) createApp(ctx context.Context, _ *mcp.CallToolRequest, in cr
 	}
 	a.Note = in.Note
 	created, err := s.apps().Create(context.WithoutCancel(ctx), srv.ID, a)
-	return nil, created, err
+	return nil, masked(created), err
 }
 
 type updateArg struct {
@@ -455,7 +475,7 @@ func (s *MCPServer) updateApp(ctx context.Context, _ *mcp.CallToolRequest, in up
 		delete(a.Env, k)
 	}
 	updated, err := s.apps().Update(context.WithoutCancel(ctx), srv.ID, a)
-	return nil, updated, err
+	return nil, masked(updated), err
 }
 
 type noteArg struct {

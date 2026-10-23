@@ -103,7 +103,7 @@ export function MCPDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
               <div className="min-w-0">
                 <div className="text-sm font-medium">允许执行只读命令</div>
                 <div className="text-muted-foreground text-xs">
-                  agent 可在服务器上运行 cat、grep、tail、journalctl、ps、ss、sqlite3（只读打开）等命令排查问题，可用管道组合。命令先经白名单校验，改不了服务器，但能读到登录用户可读的所有文件。
+                  agent 可在服务器上运行 cat、grep、tail、journalctl、ps、ss、sqlite3（只读打开）等命令排查问题，可用管道组合。命令先经白名单校验，改不了服务器，但能读到登录用户可读的所有文件，包括应用的配置文件和数据库，其中可能有密码。
                 </div>
               </div>
               <Switch

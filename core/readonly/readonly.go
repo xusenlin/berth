@@ -7,8 +7,13 @@
 // programs that cannot write files or run other programs, with the options
 // that would (find -delete, sort -o, sed -i, journalctl --vacuum-size…)
 // refused. Redirections may only read files or point at /dev/null and other
-// descriptors; variable assignments, functions and background jobs are
-// refused.
+// descriptors; functions and background jobs are refused, and variables may
+// only be set on their own, with lowercase names, which the shell never
+// reads by itself (PATH, IFS, LD_PRELOAD are uppercase).
+//
+// Files holding secrets are refused by name, /proc/*/environ, an app's
+// shared/.env and app.json: the login user can read them, so this keeps
+// them from being read by chance, not by intent.
 //
 // The command runs with sh, which is bash on some distributions: Bash
 // syntax that POSIX parses differently ($'…', brace expansion) is refused or
@@ -18,6 +23,9 @@ package readonly
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -84,9 +92,15 @@ func node(n syntax.Node) error {
 		}
 	case *syntax.CallExpr:
 		if len(n.Assigns) > 0 {
-			return errors.New("variable assignments are not allowed")
+			return assigns(n)
 		}
 		return call(n)
+	case *syntax.WordIter:
+		if !varName.MatchString(n.Name.Value) {
+			return fmt.Errorf("loop variable %s: use a lowercase name", n.Name.Value)
+		}
+	case *syntax.Word:
+		return secret(n)
 	case *syntax.FuncDecl:
 		return errors.New("functions are not allowed")
 	case *syntax.ProcSubst, *syntax.CoprocClause, *syntax.DeclClause, *syntax.LetClause, *syntax.TestClause,
@@ -104,6 +118,63 @@ func node(n syntax.Node) error {
 	case *syntax.DblQuoted:
 		if n.Dollar {
 			return errors.New(`$"…" is not allowed`)
+		}
+	}
+	return nil
+}
+
+// varName is a variable the shell and the programs it runs give no meaning
+// to.
+var varName = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+// assigns accepts p=$(pgrep x) on its own; X=1 cmd puts X in the
+// environment of cmd, where LD_PRELOAD or PAGER would run code.
+func assigns(c *syntax.CallExpr) error {
+	if len(c.Args) > 0 {
+		return errors.New("variables before a command (X=1 cmd) are not allowed: set them on their own, x=1; cmd")
+	}
+	for _, a := range c.Assigns {
+		if a.Append || a.Naked || a.Index != nil || a.Array != nil {
+			return errors.New("unsupported assignment: write it as name=value")
+		}
+		if !varName.MatchString(a.Name.Value) {
+			return fmt.Errorf("variable %s: use a lowercase name, uppercase ones such as PATH and IFS change what runs", a.Name.Value)
+		}
+	}
+	return nil
+}
+
+// secretFile matches a path naming a file that holds passwords.
+var secretFile = regexp.MustCompile(`(^|/)(environ|\.env|app\.json)$`)
+
+// secret refuses words naming a file of secretFile, also when quotes split
+// the name; expansions end a piece, as what they hold is unknown.
+func secret(w *syntax.Word) error {
+	var b strings.Builder
+	for _, p := range w.Parts {
+		switch p := p.(type) {
+		case *syntax.Lit:
+			b.WriteString(unescape(p.Value, false))
+		case *syntax.SglQuoted:
+			b.WriteString(p.Value)
+		case *syntax.DblQuoted:
+			for _, q := range p.Parts {
+				if l, ok := q.(*syntax.Lit); ok {
+					b.WriteString(unescape(l.Value, true))
+				} else {
+					b.WriteByte(0)
+				}
+			}
+		default:
+			b.WriteByte(0)
+		}
+	}
+	for _, piece := range strings.Split(b.String(), "\x00") {
+		if m := secretFile.FindStringSubmatch(piece); m != nil {
+			if m[2] == "environ" {
+				return errors.New("reading environ is not allowed: it holds the environment variables of a process, which often hold passwords")
+			}
+			return fmt.Errorf("reading %s is not allowed: it holds an app's environment variables, which often hold passwords; get_app shows their names and the other settings", m[2])
 		}
 	}
 	return nil
@@ -145,10 +216,17 @@ func call(c *syntax.CallExpr) error {
 	if err := sp.check(name, args[1:]); err != nil {
 		return err
 	}
-	if name == "sqlite3" {
+	switch name {
+	case "sqlite3":
 		// Read-only, and safe mode: no .shell, .output, ATTACH, VACUUM
 		// INTO, writefile() or extensions.
 		c.Args = slices.Insert(c.Args, 1, lit("-readonly"), lit("-safe"))
+	case "curl":
+		// No ~/.curlrc (-q must come first), no {a,b} in URLs, no proxy
+		// from the environment, and only HTTP should it ever redirect.
+		star := &syntax.Word{Parts: []syntax.WordPart{&syntax.SglQuoted{Value: "*"}}}
+		c.Args = slices.Insert(c.Args, 1, lit("-q"), lit("--globoff"), lit("--noproxy"), star,
+			lit("--proto"), lit("=http,https"))
 	}
 	return nil
 }
@@ -161,7 +239,7 @@ var free = setOf(
 	"dirname", "du", "echo", "egrep", "expand", "false", "fgrep", "findmnt", "fold", "free", "getent",
 	"grep", "groups", "head", "hexdump", "id", "iostat", "jq", "join", "last", "locale", "ls", "lsblk",
 	"lscpu", "lsof", "md5sum", "mpstat", "netstat", "nl", "nproc", "od", "paste", "pgrep", "pidof",
-	"printenv", "printf", "ps", "pwd", "readlink", "realpath", "rev", "seq", "sha1sum", "sha256sum",
+	"printenv", "printf", "pwd", "readlink", "realpath", "rev", "seq", "sha1sum", "sha256sum",
 	"sha512sum", "stat", "strings", "tac", "test", "top", "tr", "true", "uname", "unexpand", "uptime",
 	"vmstat", "w", "wc", "which", "who", "whoami", "xzcat", "zcat", "zgrep",
 )
@@ -184,6 +262,15 @@ type spec struct {
 }
 
 var checked = map[string]spec{
+	"crontab": {custom: func(args []*syntax.Word) error {
+		if len(args) == 1 {
+			if v, _ := static(args[0]); v == "-l" {
+				return nil
+			}
+		}
+		return errors.New("crontab: only crontab -l, which lists the login user's jobs")
+	}},
+	"curl": {custom: checkCurl},
 	"date": {denyShort: "s", argShort: "dfr", denyLong: []string{"set"}, maxOperands: -1,
 		operands: func(ops []string) error {
 			for _, o := range ops {
@@ -206,6 +293,7 @@ var checked = map[string]spec{
 			"directory", "file", "grep", "field", "cursor", "after-cursor", "facility", "namespace", "machine"},
 		denyLong: []string{"follow", "vacuum-size", "vacuum-time", "vacuum-files", "rotate", "flush", "sync",
 			"relinquish-var", "smart-relinquish-var", "setup-keys", "update-catalog", "new-id128"}},
+	"ps":      {custom: checkPS},
 	"sed":     {custom: checkSed},
 	"sqlite3": {custom: checkSQLite},
 	"sort":    {denyShort: "o", argShort: "kStT", denyLong: []string{"output", "compress-program"}, maxOperands: -1},
@@ -235,6 +323,24 @@ type word struct {
 	lead byte
 }
 
+// patternAt returns where the first glob or brace character of an
+// unquoted literal is, or -1. {} expands to nothing else, and xargs -I{}
+// uses it.
+func patternAt(s string) int {
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '*', '?', '[':
+			return i
+		case '{':
+			if !strings.HasPrefix(s[i:], "{}") {
+				return i
+			}
+			i++
+		}
+	}
+	return -1
+}
+
 func classify(w *syntax.Word) word {
 	var out word
 	out.static = true
@@ -252,11 +358,10 @@ func classify(w *syntax.Word) word {
 		switch p := p.(type) {
 		case *syntax.Lit:
 			v := unescape(p.Value, false)
-			if strings.ContainsAny(p.Value, "*?[{") {
+			if i := patternAt(p.Value); i >= 0 {
 				// A pattern: unknown words, but they start with what
 				// precedes the first special character.
 				out.split = true
-				i := strings.IndexAny(p.Value, "*?[{")
 				lead(unescape(p.Value[:i], false), true)
 			}
 			lead(v, true)
@@ -431,7 +536,7 @@ func checkXargs(args []*syntax.Word) error {
 	for i := 0; i < len(args); i++ {
 		v, ok := static(args[i])
 		if !ok {
-			return errors.New("xargs: write its options and command out")
+			return errors.New("xargs: write its options and command out, e.g. pgrep -f web | xargs -I{} cat /proc/{}/status")
 		}
 		switch {
 		case v == "--":
@@ -468,7 +573,149 @@ func xargsCommand(args []*syntax.Word) error {
 	}
 	name, ok := static(args[0])
 	if !ok || hasExpansion(args[0]) || !free[name] || name == "cd" {
-		return fmt.Errorf("xargs may only run programs that read whatever their arguments: %s", strings.Join(xargsAllowed(), " "))
+		return fmt.Errorf("xargs may only run programs that read whatever their arguments, not sh -c, which would run "+
+			"its input as code: pgrep -f web | xargs -I{} cat /proc/{}/status, or a loop: for p in $(pgrep -f web); do "+
+			"cat /proc/$p/status; done. Programs: %s", strings.Join(xargsAllowed(), " "))
+	}
+	return nil
+}
+
+// checkPS accepts ps without the BSD e option, which prints the
+// environment of each process. Options taking a value are skipped, as
+// their values (ps -o etime) may hold an e.
+func checkPS(args []*syntax.Word) error {
+	const bsdValued, unixValued = "oOpqtUkK", "oOpqtuUgGCskN"
+	long := []string{"format", "sort", "pid", "ppid", "sid", "tty", "user", "User", "group", "Group",
+		"cols", "columns", "rows", "width", "quick-pid"}
+	for i := 0; i < len(args); i++ {
+		v, ok := static(args[i])
+		if !ok {
+			return fmt.Errorf("ps: write argument %d out, or pass it as the value of an option such as -p", i+1)
+		}
+		switch {
+		case strings.HasPrefix(v, "--"):
+			opt, _, hasValue := strings.Cut(v[2:], "=")
+			if !hasValue && slices.Contains(long, opt) {
+				i++
+			}
+		case strings.HasPrefix(v, "-"):
+			if v != "-" && strings.IndexByte(unixValued, v[len(v)-1]) >= 0 {
+				i++
+			}
+		case isDigits(v):
+		default:
+			for j := 0; j < len(v); j++ {
+				if v[j] == 'e' {
+					return errors.New("ps e is not allowed: it prints the environment of processes, whose values often are passwords")
+				}
+				if strings.IndexByte(bsdValued, v[j]) >= 0 {
+					if j == len(v)-1 {
+						i++
+					}
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// checkCurl accepts curl sending GET requests to the server itself, for
+// health checks of apps whose port is not open to the outside; call adds
+// options keeping config files and proxies out.
+func checkCurl(args []*syntax.Word) error {
+	plain := []string{"silent", "show-error", "include", "head", "fail", "fail-with-body", "verbose",
+		"insecure", "compressed", "ipv4", "ipv6", "http1.0", "http1.1", "http2", "no-progress-meter"}
+	valued := []string{"max-time", "connect-timeout", "header", "user-agent", "write-out", "output"}
+	const plainShort, valuedShort = "sSiIfvk46", "mHAwo"
+	urls := 0
+	for i := 0; i < len(args); i++ {
+		v, ok := static(args[i])
+		if !ok {
+			return fmt.Errorf("curl: write argument %d out, without $ or patterns", i+1)
+		}
+		val := func(opt string) error {
+			i++
+			if i >= len(args) {
+				return errors.New("curl: an option lacks its value")
+			}
+			s, ok := static(args[i])
+			if !ok {
+				return fmt.Errorf("curl: write argument %d out, without $ or patterns", i+1)
+			}
+			return curlValue(opt, s)
+		}
+		switch {
+		case strings.HasPrefix(v, "--"):
+			opt, value, hasValue := strings.Cut(v[2:], "=")
+			switch {
+			case slices.Contains(plain, opt) && !hasValue:
+			case slices.Contains(valued, opt):
+				if hasValue {
+					if err := curlValue(opt, value); err != nil {
+						return err
+					}
+				} else if err := val(opt); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("curl --%s is not allowed: only GET requests to the server itself, with options such as -s, -i, -I, -f, -m, -H, -w", opt)
+			}
+		case strings.HasPrefix(v, "-") && len(v) > 1:
+			for j := 1; j < len(v); j++ {
+				switch {
+				case strings.IndexByte(plainShort, v[j]) >= 0:
+					continue
+				case strings.IndexByte(valuedShort, v[j]) >= 0:
+					if j < len(v)-1 {
+						if err := curlValue(v[j:j+1], v[j+1:]); err != nil {
+							return err
+						}
+					} else if err := val(v[j : j+1]); err != nil {
+						return err
+					}
+				default:
+					return fmt.Errorf("curl -%c is not allowed: only GET requests to the server itself, with options such as -s, -i, -I, -f, -m, -H, -w", v[j])
+				}
+				break
+			}
+		default:
+			if err := localURL(v); err != nil {
+				return err
+			}
+			urls++
+		}
+	}
+	if urls == 0 {
+		return errors.New("curl: give a URL such as http://127.0.0.1:8080/health")
+	}
+	return nil
+}
+
+// curlValue refuses output to files: -o other than /dev/null, and
+// -w %output{file}.
+func curlValue(opt, s string) error {
+	if (opt == "o" || opt == "output") && s != "/dev/null" {
+		return errors.New("curl -o may only be /dev/null, the body is shown otherwise")
+	}
+	if strings.Contains(s, "%output") {
+		return errors.New("curl: %output is not allowed")
+	}
+	return nil
+}
+
+// localURL accepts an http or https URL on the server itself.
+func localURL(s string) error {
+	bad := fmt.Errorf("curl %s is not allowed: only http:// or https:// URLs on the server itself, such as http://127.0.0.1:8080/health", s)
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Opaque != "" ||
+		strings.ContainsAny(s, " \t\n\\") {
+		return bad
+	}
+	if h := u.Hostname(); h != "localhost" {
+		if ip := net.ParseIP(h); ip == nil || !ip.IsLoopback() {
+			return bad
+		}
 	}
 	return nil
 }
