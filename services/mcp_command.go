@@ -37,7 +37,7 @@ func (s *MCPServer) syncCommands() {
 		Description: "Run a read-only shell command on a server to investigate: read logs and files anywhere, list directories, " +
 			"look at processes, ports, disks and systemd units. Pipes, &&, ;, if, for and $(…) work, but only programs that " +
 			"cannot change the server: cat, grep, tail, head, sed (no -i, w or e), find (no -delete or -exec), " +
-			"sort, uniq, wc, jq, sqlite3 (opened -readonly -safe, e.g. on an app's shared/data.db), journalctl, " +
+			"sort, uniq, wc, jq, sqlite3 (opened -readonly -safe, waiting up to 5s on a locked database; e.g. sqlite3 -box $HOME/senlinApps/pb/shared/pb_data/data.db 'select count(*) from users'), journalctl, " +
 			"systemctl status/show/cat/list-* (add --user on servers whose apps are user services), crontab -l, ss, ps, du, df, " +
 			"ip … show, curl for GET requests to the server itself (http://127.0.0.1:PORT/…, e.g. a health check), xargs with one " +
 			"of these, and the like. Redirections may only read files or go to /dev/null or 2>&1. Variables may be set on their " +

@@ -219,8 +219,10 @@ func call(c *syntax.CallExpr) error {
 	switch name {
 	case "sqlite3":
 		// Read-only, and safe mode: no .shell, .output, ATTACH, VACUUM
-		// INTO, writefile() or extensions.
-		c.Args = slices.Insert(c.Args, 1, lit("-readonly"), lit("-safe"))
+		// INTO, writefile() or extensions. The timeout waits for an app
+		// writing to the database rather than failing with "locked".
+		timeout := &syntax.Word{Parts: []syntax.WordPart{&syntax.SglQuoted{Value: ".timeout 5000"}}}
+		c.Args = slices.Insert(c.Args, 1, lit("-readonly"), lit("-safe"), lit("-cmd"), timeout)
 	case "curl":
 		// No ~/.curlrc (-q must come first), no {a,b} in URLs, no proxy
 		// from the environment, and only HTTP should it ever redirect.
@@ -341,6 +343,17 @@ func patternAt(s string) int {
 	return -1
 }
 
+// home tells $HOME, which starts with /, from other expansions, whose
+// start is unknown. HOME cannot be set: uppercase names are refused.
+func home(p syntax.WordPart) (string, bool) {
+	pe, ok := p.(*syntax.ParamExp)
+	if ok && pe.Param != nil && pe.Param.Value == "HOME" && !pe.Excl && !pe.Length && !pe.Width &&
+		pe.Index == nil && pe.Slice == nil && pe.Repl == nil && pe.Names == 0 && pe.Exp == nil {
+		return "/", true
+	}
+	return "", false
+}
+
 func classify(w *syntax.Word) word {
 	var out word
 	out.static = true
@@ -377,7 +390,7 @@ func classify(w *syntax.Word) word {
 					b.WriteString(v)
 				} else {
 					out.static = false
-					lead("", false)
+					lead(home(q))
 				}
 			}
 			if len(p.Parts) == 0 {
@@ -385,7 +398,7 @@ func classify(w *syntax.Word) word {
 			}
 		default:
 			out.static, out.split = false, true
-			lead("", false)
+			lead(home(p))
 		}
 	}
 	if !out.static {
@@ -853,7 +866,9 @@ func checkSed(args []*syntax.Word) error {
 func checkSQLite(args []*syntax.Word) error {
 	plain := []string{"readonly", "safe", "json", "csv", "html", "line", "list", "column", "box", "table",
 		"markdown", "tabs", "quote", "ascii", "header", "noheader", "bail", "batch", "echo", "version"}
-	valued := []string{"separator", "newline", "nullvalue", "escape"}
+	// -cmd runs dot commands and SQL as the arguments after the database
+	// do, which -safe confines.
+	valued := []string{"separator", "newline", "nullvalue", "escape", "cmd"}
 	for i := 0; i < len(args); i++ {
 		w := classify(args[i])
 		if !w.static {

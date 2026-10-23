@@ -64,6 +64,10 @@ func TestAllowed(t *testing.T) {
 		`curl -sI 'http://[::1]:8080/'`,
 		`curl -sm5 -H 'Host: example.com' https://127.0.0.1/`,
 		`curl --max-time=3 --include http://127.0.0.2/x`,
+		`sqlite3 -box $HOME/senlinApps/pb/shared/pb_data/data.db 'select count(*) from users'`,
+		`sqlite3 "${HOME}/senlinApps/pb/shared/pb_data/data.db" .tables`,
+		`sqlite3 -cmd '.mode box' -cmd '.headers on' ./data.db 'select 1'`,
+		`cat $HOME/x.log`,
 	} {
 		if _, err := Check(cmd); err != nil {
 			t.Errorf("%s: %v", cmd, err)
@@ -73,7 +77,7 @@ func TestAllowed(t *testing.T) {
 
 func TestSQLiteReadOnly(t *testing.T) {
 	out, err := Check(`sqlite3 ./x.db 'select 1' | head`)
-	if err != nil || out != "sqlite3 -readonly -safe ./x.db 'select 1' | head\n" {
+	if err != nil || out != "sqlite3 -readonly -safe -cmd '.timeout 5000' ./x.db 'select 1' | head\n" {
 		t.Errorf("got %q %v", out, err)
 	}
 }
@@ -195,7 +199,7 @@ func TestRefused(t *testing.T) {
 		`ls &> /dev/null`,
 		`[[ -f x ]]`,
 		`grep "a$" x`,
-		`sqlite3 -cmd '.shell id' ./x.db`,
+		`sqlite3 -cmd $c ./x.db`,
 		`sqlite3 -init ./x.sql ./x.db`,
 		`sqlite3 -nonce x ./x.db '.nonce x' '.shell id'`,
 		`sqlite3 -unsafe-testing ./x.db`,
@@ -243,6 +247,10 @@ func TestRefused(t *testing.T) {
 		`curl -T ./f http://127.0.0.1/`,
 		`curl "$u"`,
 		`curl -s`,
+		`sqlite3 ${HOME:-x}/d.db`,
+		`sqlite3 ${HOME#/}/d.db`,
+		`sqlite3 $HOMEX/d.db`,
+		`cat $HOME/senlinApps/web/shared/.env`,
 	} {
 		if out, err := Check(cmd); err == nil {
 			t.Errorf("%s: accepted as %q", cmd, out)
