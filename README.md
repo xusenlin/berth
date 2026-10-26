@@ -4,6 +4,24 @@
 
 本地桌面软件：通过 SSH 把任意 Linux 二进制部署到服务器，用服务器自带的 systemd 运行。服务器上不安装任何常驻程序。设计见 [berth-plan.md](berth-plan.md)。
 
+## 界面
+
+服务器上的应用、端口和资源占用。
+
+<img src="screenshots/server.png" width="800" alt="服务器概览">
+
+单个应用的状态、访问地址和 systemd 单元。
+
+<img src="screenshots/app.png" width="800" alt="应用概览">
+
+拖入新的二进制发版，或回滚到历史版本。
+
+<img src="screenshots/release.png" width="800" alt="发版">
+
+侧栏里启用本机 MCP，把查看、发版和只读排查交给 agent。
+
+<img src="screenshots/agent.png" width="800" alt="Agent 接入">
+
 ## 开发
 
 需要 Go 1.27+、Node.js 22+、pnpm 和 [Task](https://taskfile.dev)。
@@ -36,6 +54,7 @@ task            # 列出全部任务：test、e2e、check、icon、build:mac 等
 | `frontend/` | React + Tailwind + shadcn/ui |
 | `testdata/e2e/` | 端到端测试用的 Linux 服务器镜像和测试程序 |
 | `design/` | 应用图标源文件与渲染脚本 |
+| `screenshots/` | 界面截图，README 中引用 |
 
 Agent 接入：侧栏底部的机器人图标里启用 MCP 服务，复制 `claude mcp add …` 命令即可。服务跑在应用进程内，只监听 `127.0.0.1:7789/mcp`（端口可在 config.json 的 `mcp.port` 修改），Berth 打开时可用。工具定义在 `services/mcp_tools.go`。同一处可打开「允许执行只读命令」，agent 便能用 `run_command` 在服务器上跑 cat、grep、tail、journalctl、sqlite3（自动加 `-readonly -safe`）等命令排查问题：命令按 POSIX sh 解析，只放行白名单里不能改动服务器的程序和参数（`core/readonly`），在服务器上以登录用户身份、nice 和超时运行，输出截断在 64 KiB。
 
