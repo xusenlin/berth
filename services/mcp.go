@@ -34,6 +34,7 @@ func NewMCPServer(b *Backend) *MCPServer {
 	s.tool = mcp.NewServer(&mcp.Implementation{Name: "berth", Title: "Berth", Version: "1"}, &mcp.ServerOptions{
 		Instructions: mcpInstructions,
 	})
+	s.tool.AddReceivingMiddleware(s.activity)
 	s.addTools()
 	s.syncCommands()
 	return s

@@ -1,6 +1,8 @@
 import { useState, type CSSProperties } from "react";
+import { AgentActivity } from "@/components/agent-activity";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AgentProvider } from "@/lib/agent";
 import { NavContext, type Route } from "@/lib/nav";
 import { useServerEvents, useServers } from "@/lib/queries";
 import { AppPage } from "@/pages/app-page";
@@ -24,10 +26,15 @@ export default function App() {
 
   return (
     <NavContext.Provider value={{ route: { ...route, server: current }, go: setRoute }}>
-      <SidebarProvider style={{ "--sidebar-width": "15rem" } as CSSProperties} className="h-full">
-        <AppSidebar />
-        <SidebarInset className="min-w-0 overflow-hidden">{page}</SidebarInset>
-      </SidebarProvider>
+      <AgentProvider>
+        <SidebarProvider style={{ "--sidebar-width": "15rem" } as CSSProperties} className="h-full">
+          <AppSidebar />
+          <SidebarInset className="min-w-0 overflow-hidden">
+            {page}
+            <AgentActivity />
+          </SidebarInset>
+        </SidebarProvider>
+      </AgentProvider>
     </NavContext.Provider>
   );
 }

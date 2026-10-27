@@ -95,6 +95,18 @@ func (s *MCPServer) addTools() {
 
 // server resolves a server by id or name and checks it may be used.
 func (s *MCPServer) server(ref string) (config.Server, error) {
+	srv, err := s.lookup(ref)
+	if err != nil {
+		return srv, err
+	}
+	if s.B.isOffline(srv.ID) {
+		return srv, fmt.Errorf("the user disconnected server %s in Berth; ask them to connect it again", srv.Name)
+	}
+	return srv, nil
+}
+
+// lookup resolves a server by id, name or host.
+func (s *MCPServer) lookup(ref string) (config.Server, error) {
 	ref = strings.TrimSpace(ref)
 	servers := s.B.Store.Servers()
 	var found []config.Server
@@ -113,11 +125,7 @@ func (s *MCPServer) server(ref string) (config.Server, error) {
 	case len(found) > 1:
 		return config.Server{}, fmt.Errorf("several servers match %q: use the id from list_servers", ref)
 	}
-	srv := found[0]
-	if s.B.isOffline(srv.ID) {
-		return srv, fmt.Errorf("the user disconnected server %s in Berth; ask them to connect it again", srv.Name)
-	}
-	return srv, nil
+	return found[0], nil
 }
 
 func (s *MCPServer) servers() *Servers { return &Servers{B: s.B} }

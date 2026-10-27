@@ -20,6 +20,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
+import { useAgentCalls } from "@/lib/agent";
 import { useNav } from "@/lib/nav";
 import { useServers } from "@/lib/queries";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ export function AppSidebar() {
   const [adding, setAdding] = useState(false);
   const [appearance, setAppearance] = useState(false);
   const [agents, setAgents] = useState(false);
+  const calls = useAgentCalls();
 
   return (
     <Sidebar>
@@ -57,6 +59,7 @@ export function AppSidebar() {
                 ))}
               {servers.data?.map((s) => {
                 const active = route.server === s.server.id;
+                const busy = calls.some((c) => c.state === "running" && c.server === s.server.id);
                 return (
                   <SidebarMenuItem key={s.server.id}>
                     <SidebarMenuButton
@@ -70,6 +73,7 @@ export function AppSidebar() {
                         className={cn(
                           "relative flex size-8 shrink-0 items-center justify-center rounded-lg border shadow-xs transition-colors",
                           active ? "bg-primary border-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                          busy && "agent-busy",
                         )}
                       >
                         <ServerIcon className="size-4" />

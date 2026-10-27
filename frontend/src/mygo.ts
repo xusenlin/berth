@@ -7,6 +7,29 @@ import { call, event, type Channel } from "mygo-runtime";
 /** Action is a lifecycle command. */
 export type Action = "start" | "stop" | "restart";
 
+/**
+ * Activity is a tool call of an agent. The start and the end of a call
+ * share its ID.
+ */
+export interface Activity {
+  id: number;
+  tool: string;
+  /** Client is the agent's name, such as claude-code. */
+  client?: string;
+  /** Server is the id of the server the call is about. */
+  server?: string;
+  app?: string;
+  /** Detail is what the call works on: a command, a file, an action… */
+  detail?: string;
+  state: ActivityState;
+  error?: string;
+  /** Millis is how long the call took, once ended. */
+  millis?: number;
+}
+
+/** ActivityState is where a tool call is. */
+export type ActivityState = "running" | "done" | "failed";
+
 /** App is the content of an app's app.json. */
 export interface App {
   name: string;
@@ -563,7 +586,7 @@ export const Servers = {
   },
   /**
    * Disconnect closes the connection to a server and keeps it closed until
-   * Reconnect.
+   * Reconnect, also after a restart.
    */
   disconnect(id: string): Promise<void> {
     return call("Servers.Disconnect", id);
@@ -797,4 +820,9 @@ export const MCP = {
 export const events = {
   /** ServerStatus is sent when a server's connection changes state. */
   serverStatus: event<StatusChange>("serverStatus"),
+  /**
+   * AgentActivity is sent when an agent starts and ends a tool call, so the
+   * window shows what the agent is doing.
+   */
+  agentActivity: event<Activity>("agentActivity"),
 } as const;

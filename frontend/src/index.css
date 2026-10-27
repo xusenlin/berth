@@ -353,3 +353,202 @@
     color 0.25s ease,
     fill 0.25s ease !important;
 }
+
+/* Agents at work (components/agent-activity.tsx): the logo's gradient
+   turns around the window, the cards and the servers they touch. */
+@property --agent-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes agent-spin {
+  to {
+    --agent-angle: 360deg;
+  }
+}
+@keyframes agent-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@keyframes agent-twinkle {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.7) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(20deg);
+  }
+}
+@keyframes agent-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+/* The turning gradient, set on the animated element itself: the angle
+   does not inherit. */
+.agent-glow::before,
+.agent-glow::after,
+.agent-card-running::before,
+.agent-busy::before {
+  background: conic-gradient(
+    from var(--agent-angle),
+    var(--logo-from),
+    var(--logo-to),
+    transparent 40%,
+    transparent 60%,
+    var(--logo-from)
+  );
+}
+
+/* A frame around the window, with a soft glow inside it. */
+.agent-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.agent-glow-on {
+  opacity: 1;
+}
+.agent-glow::before,
+.agent-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  animation: agent-spin 4s linear infinite;
+}
+.agent-glow::after {
+  padding: 10px;
+  filter: blur(14px);
+  opacity: 0.55;
+}
+
+.agent-card {
+  border: 1px solid var(--border);
+}
+/* While running, the border is the turning gradient. */
+.agent-card-running {
+  border-color: transparent;
+  background-clip: padding-box;
+}
+.agent-card-running::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  animation: agent-spin 2.4s linear infinite;
+  pointer-events: none;
+}
+.agent-card-failed {
+  border-color: color-mix(in oklab, var(--destructive) 45%, transparent);
+}
+
+.agent-badge {
+  background: linear-gradient(135deg, var(--logo-from), var(--logo-to));
+  box-shadow: 0 4px 12px -4px var(--logo-to);
+}
+.agent-sparkle {
+  animation: agent-twinkle 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px oklch(0.85 0.17 85 / 70%));
+}
+
+/* The label of a running call: a light sweeps over it. */
+.agent-shimmer {
+  background: linear-gradient(
+      90deg,
+      var(--popover-foreground) 0%,
+      var(--popover-foreground) 35%,
+      var(--logo-from) 50%,
+      var(--popover-foreground) 65%,
+      var(--popover-foreground) 100%
+    )
+    0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: agent-shimmer 1.8s linear infinite;
+}
+
+.agent-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+.agent-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--logo-to);
+  animation: agent-dot 1.2s ease-in-out infinite;
+}
+.agent-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.agent-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* A server an agent works on: its icon gets the turning ring. */
+/* Over the icon's border: the menu button clips what goes past it. A
+   white head keeps it visible on the selected server's primary fill. */
+.agent-busy::before {
+  content: "";
+  background: conic-gradient(
+    from var(--agent-angle),
+    transparent 0%,
+    var(--logo-to) 45%,
+    var(--logo-from) 80%,
+    white 92%,
+    transparent 93%
+  );
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 2px;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  animation: agent-spin 1.6s linear infinite;
+  pointer-events: none;
+}
+
+/* Toasts share the bottom right with the cards: they sit above them. */
+[data-sonner-toaster][data-y-position="bottom"] {
+  bottom: calc(var(--offset-bottom) + var(--agent-stack, 0px)) !important;
+  transition: bottom 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-glow::before,
+  .agent-glow::after,
+  .agent-card-running::before,
+  .agent-busy::before,
+  .agent-shimmer,
+  .agent-sparkle,
+  .agent-dots i {
+    animation: none;
+  }
+}
